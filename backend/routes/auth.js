@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const protect = require('../middleware/authMiddleware'); 
-
 const router = express.Router();
 
 // POST /api/auth/register
@@ -58,6 +57,50 @@ router.get('/profile', protect, async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
+
+// PUT /api/auth/update
+router.put('/update', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id); 
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.username = req.body.username || user.username;
+    user.email = req.body.email || user.email;
+    if (req.body.password) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(req.body.password, salt);
+    }
+
+    const updatedUser = await user.save();
+    res.json({
+      id: updatedUser._id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      message: 'Profile updated successfully',
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/auth/delete
+router.delete('/delete' , protect, async(req,res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if(!user) return res.status(404).json({
+            message: 'User not found'
+        });
+        await user.deleteOne();
+        res.json({
+            message: 'User successfully deleted.'
+        });
+    } catch(err) {
+        res.status(500).json({
+            message: err.message            
+        });
+    }
+});
+
+
 
 module.exports = router;
 
