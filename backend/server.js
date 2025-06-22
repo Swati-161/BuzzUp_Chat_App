@@ -11,7 +11,7 @@ connectDB();
 const app = express();
 
 app.use(cors({
-    origin: '*',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
   }));
@@ -19,6 +19,9 @@ app.use(cors({
 app.use(express.json());
 
 app.use('/api/auth', authRoutes); 
+app.use('/api/messages', require('./routes/message'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/conversations', require('./routes/conversations'));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 

@@ -9,7 +9,6 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
-        console.log(username, email, password);
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
@@ -23,8 +22,8 @@ router.post('/register', async (req, res) => {
             email,
             password: hashedPassword
         });
-
-        res.status(201).json({ message: 'User registered successfully' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.status(201).json({ token: token, message: 'User registered successfully' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -36,14 +35,14 @@ router.post('/login', async (req, res) => {
         const { email, password } = req.body;
 
         const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!user) return res.status(400).json({ message: 'User not found' });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-        res.json({ token, user: { id: user._id, username: user.username, email: user.email } });
+        res.status(200).json({ token, user: { id: user._id, username: user.username, email: user.email } });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -52,6 +51,7 @@ router.post('/login', async (req, res) => {
 //  GET /api/auth/profile - protected route
 router.get('/profile', protect, async (req, res) => {
     try {
+        const user = await User.findById(req.user.id); 
         res.json(req.user); 
     } catch (err) {
         res.status(500).json({ message: err.message });
