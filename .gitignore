@@ -1,4 +1,4 @@
 backend/.env
 backend/node_modules/
 my-chat-app/node_modules/
-backend/firebaseServiceAccount
+backend/firebaseServiceAccount.json
