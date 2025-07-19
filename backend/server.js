@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/auth');
+const uploadRoute = require('./routes/upload');
+const translateRoute = require('./routes/translate');
 
 dotenv.config();
 connectDB();
@@ -15,8 +17,11 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
   }));
-  
 app.use(express.json());
+
+app.use('/uploads', express.static('uploads'));
+app.use('/api/upload', uploadRoute);
+app.use("/api/translate", translateRoute);
 
 app.use('/api/auth', authRoutes); 
 app.use('/api/messages', require('./routes/message'));
