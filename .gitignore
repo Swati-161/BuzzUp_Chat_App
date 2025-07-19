@@ -3,3 +3,4 @@ backend/node_modules/
 my-chat-app/node_modules/
 backend/firebaseServiceAccount.json
 backend/google-credentials.json
+google-credentials.json
