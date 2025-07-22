@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { IoNotificationsOutline } from "react-icons/io5";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, off, query, orderByChild, equalTo } from "firebase/database";
 import { database } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 
@@ -12,13 +12,18 @@ const NotificationBell = ({ onClick }) => {
     if (!firebaseUser) return;
 
     const notiRef = ref(database, `notifications/${firebaseUser.uid}`);
-    const unsubscribe = onValue(notiRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      const unread = Object.values(data).filter(n => !n.read).length;
-      setUnreadCount(unread);
-    });
+    const notiQuery = query(notiRef, orderByChild("read"), equalTo(false));
 
-    return () => unsubscribe();
+    const handleSnapshot = (snapshot) => {
+      const data = snapshot.val() || {};
+      const unread = Object.keys(data).length;
+      setUnreadCount(unread);
+    };
+
+    onValue(notiQuery, handleSnapshot);
+
+    // Manual cleanup using `off`
+    return () => off(notiQuery, "value", handleSnapshot);
   }, [firebaseUser]);
 
   return (

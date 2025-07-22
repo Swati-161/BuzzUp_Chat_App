@@ -1,4 +1,3 @@
-//chat.js
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../firebase";
 import { ref, push, onValue, set } from "firebase/database";
@@ -6,13 +5,15 @@ import axios from "axios";
 import "./chat.css";
 import Header from "./Header";
 import UploadMedia from './UploadMedia';
-import TranslateDropdown from "../components/TranslateDropdown";
 import MessageItem from "../components/MessageItem";
+import { useAuth } from "../context/AuthContext";
+import UserSearchBox from "../components/UserSearchBox";
 
 const getChatId = (uid1, uid2) =>
   uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 
-function Chat({ onLogout, currentUser }) {
+function Chat({ onLogout}) {
+  const { firebaseUser } = useAuth();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
@@ -26,27 +27,80 @@ function Chat({ onLogout, currentUser }) {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (!currentUser || !token) return;
+    if (!firebaseUser || !token) return;
     (async () => {
-      const res = await axios.get("http://localhost:5000/api/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setUsers(res.data);
+      try {
+        const res = await axios.get("http://localhost:5000/api/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUsers(res.data);
+      } catch (err) {
+        console.error("Failed to fetch users", err);
+      }
     })();
-  }, [currentUser, token]);
+  }, [firebaseUser, token]);
 
   useEffect(() => {
-    if (!currentUser || !activeChatUser) return;
+    if (!firebaseUser?.uid || !activeChatUser) return;
 
-    const chatId = getChatId(currentUser.uid, activeChatUser);
+    const chatId = getChatId(firebaseUser.uid, activeChatUser);
     const messagesRef = ref(database, `Messages/${chatId}`);
 
     return onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       const messageArray = data ? Object.values(data) : [];
       setMessages(messageArray);
+
+      const notiRef = ref(database, `Notifications/${firebaseUser.uid}`);
+      onValue(notiRef, (snap) => {
+        const all = snap.val() || {};
+        Object.entries(all).forEach(([id, notif]) => {
+          if (notif.from === activeChatUser && !notif.read) {
+            set(ref(database, `Notifications/${firebaseUser.uid}/${id}/read`), true);
+          }
+        });
+      });
     });
-  }, [currentUser, activeChatUser]);
+  }, [firebaseUser, activeChatUser]);
+
+  useEffect(() => {
+    if (!firebaseUser?.uid || !activeChatUser) return;
+
+    const chatId = getChatId(firebaseUser.uid, activeChatUser);
+    const messagesRef = ref(database, `Messages/${chatId}`);
+
+    const unsubscribe = onValue(messagesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      Object.entries(data).forEach(([msgId, msg]) => {
+        const isIncomingUnread =
+          msg.sender === activeChatUser &&
+          msg.receiver === firebaseUser.uid &&
+          msg.read === false;
+
+        if (isIncomingUnread) {
+          // ✅ Mark message as read
+          const msgRef = ref(database, `Messages/${chatId}/${msgId}`);
+          set(msgRef, { ...msg, read: true });
+
+          // ✅ Mark notification as read (if matching exists)
+          const notifRef = ref(database, `Notifications/${firebaseUser.uid}`);
+          onValue(notifRef, (notiSnap) => {
+            const notis = notiSnap.val() || {};
+            Object.entries(notis).forEach(([notiId, noti]) => {
+              if (!noti.read && noti.from === activeChatUser) {
+                set(ref(database, `Notifications/${firebaseUser.uid}/${notiId}/read`), true);
+              }
+            });
+          }, { onlyOnce: true });
+        }
+      });
+    });
+
+    return () => unsubscribe();
+  }, [firebaseUser, activeChatUser]);
+
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -55,13 +109,13 @@ function Chat({ onLogout, currentUser }) {
   }, [messages]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!firebaseUser?.uid) return;
 
-    const notificationRef = ref(database, `Notifications/${currentUser.uid}`);
+    const notificationRef = ref(database, `Notifications/${firebaseUser.uid}`);
 
     return onValue(notificationRef, (snapshot) => {
       const data = snapshot.val();
-      const allNotifs = data ? Object.entries(data).map(([id, n]) => ({ id, ...n })) : [];
+      const allNotifs = data ? Object.entries(data).map(([id, n]) => ({ id, read: false, ...n, read: n.read ?? false })) : [];
 
       const unreadFromOthers = allNotifs.filter(
         (n) => !n.read && n.from !== activeChatUser
@@ -69,13 +123,13 @@ function Chat({ onLogout, currentUser }) {
 
       setNotifications(unreadFromOthers);
     });
-  }, [currentUser, activeChatUser]);
+  }, [firebaseUser, activeChatUser]);
 
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !activeChatUser) return;
+    if (!message.trim() || !firebaseUser?.uid || !activeChatUser) return;
 
-    const chatId = getChatId(currentUser.uid, activeChatUser);
+    const chatId = getChatId(firebaseUser.uid, activeChatUser);
     const messagesRef = ref(database, `Messages/${chatId}`);
 
     let detectedLang = "en";
@@ -90,7 +144,7 @@ function Chat({ onLogout, currentUser }) {
 
     const newMsg = {
       text: message,
-      sender: currentUser.uid,
+      sender: firebaseUser.uid,
       receiver: activeChatUser,
       timestamp: Date.now(),
       originalLang: detectedLang,
@@ -99,13 +153,13 @@ function Chat({ onLogout, currentUser }) {
 
     push(messagesRef, newMsg);
 
-    set(ref(database, `Chatlist/${currentUser.uid}/${activeChatUser}`), true);
-    set(ref(database, `Chatlist/${activeChatUser}/${currentUser.uid}`), true);
+    set(ref(database, `Chatlist/${firebaseUser.uid}/${activeChatUser}`), true);
+    set(ref(database, `Chatlist/${activeChatUser}/${firebaseUser.uid}`), true);
 
     const notificationRef = ref(database, `Notifications/${activeChatUser}`);
     const newNotification = {
       type: "message",
-      from: currentUser.uid,
+      from: firebaseUser.uid,
       to: activeChatUser,
       text: message,
       timestamp: Date.now(),
@@ -119,26 +173,13 @@ function Chat({ onLogout, currentUser }) {
   return (
     <div className="chat-page">
       <Header
-        currentUser={currentUser}
+        currentUser={firebaseUser}
         notifications={notifications}
         setActiveChatUser={setActiveChatUser}
         setNotifications={setNotifications}
       />
 
-      <select
-        className="contacts-dropdown"
-        value={activeChatUser}
-        onChange={(e) => setActiveChatUser(e.target.value)}
-      >
-        <option value="">Select Contact</option>
-        {users.map((u) => (
-          <option key={u._id} value={u._id}>
-            {u.username}
-          </option>
-        ))}
-      </select>
-
-      
+      <UserSearchBox onUserSelected={(uid) => setActiveChatUser(uid)} />
 
       <div className="chat-container">
         <div className="message-area message-list">
@@ -147,12 +188,10 @@ function Chat({ onLogout, currentUser }) {
               <MessageItem
                 key={idx}
                 msg={msg}
-                currentUser={currentUser}
+                currentUser={firebaseUser}
                 onMediaClick={(media) => setPreviewMedia(media)}
               />
-
             ))
-
           ) : (
             <p>Your messages will appear here.</p>
           )}
@@ -180,7 +219,7 @@ function Chat({ onLogout, currentUser }) {
             </form>
             {showUpload && (
               <UploadMedia
-                currentUserId={currentUser.uid}
+                currentUserId={firebaseUser.uid}
                 selectedUserId={activeChatUser}
                 onClose={() => setShowUpload(false)}
               />

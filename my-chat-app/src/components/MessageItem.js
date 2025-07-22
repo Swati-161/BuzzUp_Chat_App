@@ -1,38 +1,50 @@
 import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 import TranslateDropdown from "./TranslateDropdown";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import "./MessageItem.css";
 
-function MessageItem({ msg, currentUser, onMediaClick }) {
-  const [translatedText, setTranslatedText] = useState(null);
-  const [selectedLang, setSelectedLang] = useState("en");
-  const isCurrentUser = (msg.sender || msg.senderId) === currentUser.uid;
+function MessageItem({ msg, onMediaClick }) {
 
+  const { firebaseUser } = useAuth();
+  const [translatedText, setTranslatedText] = useState(null);
+  const [selectedLang, setSelectedLang] = useState("");
+  const isCurrentUser = (msg.sender || msg.senderId) === firebaseUser.uid;
+  const [loadingTranslation, setLoadingTranslation] = useState(false);
 
   useEffect(() => {
-    if (msg.type !== "text") return;
-    if (selectedLang === msg.originalLang) {
-      setTranslatedText(null);
-      return;
-    }
 
-    const translateMessage = async () => {
+  if (!msg.text || !selectedLang) return;
+
+
+  const delayDebounce = setTimeout(() => {
+    const translateText = async () => {
+      setLoadingTranslation(true);
       try {
-        const res = await axios.post("http://localhost:5000/api/translate", {
-          text: msg.text,
-          targetLanguage: selectedLang,
-        });
+        const res = await axios.post("/api/translate", {
+        text: msg.text,
+        targetLanguage: selectedLang,
+      });
+
         setTranslatedText(res.data.translatedText);
       } catch (err) {
         console.error("Translation failed", err);
-        setTranslatedText(null);
+        const errorMsg = err?.response?.data?.message || "Translation failed.";
+        setTranslatedText(errorMsg);
+
+      } finally {
+      setLoadingTranslation(false); 
       }
     };
 
-    translateMessage();
-  }, [msg.text, selectedLang, msg.originalLang, msg.type]);
+    translateText();
+  }, 400); 
+
+  return () => clearTimeout(delayDebounce); 
+}, [selectedLang,msg.text, msg.originalLang]);
 
   return (
+
     <div className={`message-item ${isCurrentUser ? "sent" : "received"}`}>
       <div className="message-bubble">
         <div className="message-header">
@@ -52,39 +64,112 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
         {msg.type === "text" && (
           <>
             <p className="message-text original-text">{msg.text}</p>
-            {translatedText && (
-              <p className="message-text translated-text">↓ {translatedText}</p>
-            )}
+            {loadingTranslation ? (
+              <div style={{ color: "#999", fontStyle: "italic", marginTop: "4px" }}>
+                Translating...
+              </div>
+            ) : (
+              translatedText && (
+                <div
+                  style={{
+                    position: "relative",
+                    backgroundColor: "#f1f1f1",
+                    padding: "8px 24px 8px 8px",
+                    marginTop: "6px",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <p className="message-text translated-text">{translatedText}</p>
+                  <button
+                    onClick={() => {
+                      setTranslatedText("");
+                      setSelectedLang("");
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "6px",
+                      background: "transparent",
+                      border: "none",
+                      color: "#555",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                    }}
+                    aria-label="Close translation"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) ) }
+              
           </>
         )}
-
         {msg.type === "media" && (
           <div className="media-wrapper">
+
             {msg.mediaType === "image" && (
-              <>
-                <img
-                  src={`http://localhost:5000${msg.mediaUrl}`}
-                  alt="sent media"
-                  className="chat-image"
-                  onClick={() => onMediaClick({ type: "image", url: `http://localhost:5000${msg.mediaUrl}` })}
-                />
-                <div style={{ marginTop: "8px", textAlign: "center" }}>
-                  <a
-                    href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
-                    download
-                    className="download-btn"
+              <div
+                style={{
+                  backgroundColor: "#f1f1f1",
+                  padding: "10px",
+                  borderRadius: "12px",
+                  maxWidth: "220px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "10px",
+                  }}
+                >
+                  <img
+                    src={`http://localhost:5000/thumbnails${msg.mediaUrl}`}
+                    alt="shared an image"
+                    className="chat-image"
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      objectFit: "contain",
+                    }}
+                    onClick={() =>
+                      onMediaClick({ type: "image", url: `http://localhost:5000${msg.mediaUrl}` })
+                    }
+                  />
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      color: "#333",
+                    }}
                   >
-                    Download
-                  </a>
+                    shared an image
+                  </span>
                 </div>
-              </>
+
+                <a
+                  href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
+                  download
+                  className="download-btn"
+                >
+                  Download
+                </a>
+              </div>
             )}
+
+
             {msg.mediaType === "video" && (
             <div style={{ maxWidth: "400px", margin: "10px 0" }}>
                 <video
                 className="chat-video"
                 controls
                 style={{ width: "100%", borderRadius: "8px", cursor: "pointer" }}
+                poster={`http://localhost:5000/thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
                 onClick={() =>
                     onMediaClick({
                     type: "video",
@@ -92,7 +177,7 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
                     })
                 }
                 >
-                <source src={`http://localhost:5000${msg.mediaUrl}`} type="video/mp4" />
+                <source src={`http://localhost:5000${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
                 Your browser does not support the video tag.
                 </video>
 
@@ -112,6 +197,7 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
                 <div style={{ maxWidth: "400px", margin: "10px 0" }}>
                     <audio
                     controls
+                    preload="metadata"
                     style={{ width: "100%", borderRadius: "4px", backgroundColor: "#f0f0f0" }}
                     onClick={() =>
                         onMediaClick({
@@ -124,6 +210,12 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
                     Your browser does not support the audio element.
                     </audio>
 
+                    {msg.duration && (
+                      <div style={{ fontSize: "14px", color: "#444", marginTop: "6px" }}>
+                        Duration: {Math.floor(msg.duration)} seconds
+                      </div>
+                    )}
+
                     <div style={{ marginTop: "8px", textAlign: "center" }}>
                     <a
                         href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
@@ -134,8 +226,8 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
                     </a>
                     </div>
                 </div>
-                )}
-
+            )}
+            
           </div>
         )}
       </div>
@@ -143,4 +235,5 @@ function MessageItem({ msg, currentUser, onMediaClick }) {
   );
 }
 
-export default MessageItem;
+export default React.memo(MessageItem);
+

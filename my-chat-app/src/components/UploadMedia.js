@@ -1,46 +1,85 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { ref, push } from 'firebase/database';
+import { ref, push, update, onValue } from 'firebase/database'; // ✅ Added update
 import { database } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 import './UploadMedia.css';
 
-function UploadMedia({ currentUserId, selectedUserId, onClose }) {
+function UploadMedia({ selectedUserId, onClose }) {
+  const getChatId = (uid1, uid2) =>
+    uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+
+  const { firebaseUser } = useAuth();
+  const currentUserId = firebaseUser?.uid;
   const [preview, setPreview] = useState(null);
-  const [uploadedFile, setUploadedFile] = useState(null);
 
   const handleDrop = async (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    setUploadedFile(file);
+    if (!file) return;
+
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file); // ✅ Ensure field name matches backend
 
     try {
-      const res = await axios.post('http://localhost:5000/api/upload', formData);
-      setPreview(res.data);
+      const token = await firebaseUser.getIdToken();
+      const response = await axios.post("http://localhost:5000/api/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${firebaseUser.accessToken}`,
+        },
+      });
+
+      const fileType = file.type.split("/")[0]; // 'image', 'video', 'audio'
+      const mediaType = response.data.mediaType || fileType;
+
+      const previewData = {
+        originalUrl: response.data.compressedVideo || response.data.originalUrl,
+        thumbnail: response.data.thumbnail || "",
+        duration: response.data.duration || null,
+        type: mediaType,
+      };
+
+      setPreview(previewData);
     } catch (err) {
-      console.error(err);
+      console.error("Error uploading media:", err);
     }
   };
 
   const handleSend = () => {
-    if (!preview) return;
+    if (!preview || !currentUserId || !selectedUserId) return;
+
+    const chatId = getChatId(currentUserId, selectedUserId);
+    const senderRef = ref(database, `Messages/${chatId}`);
+    const newMessageKey = push(senderRef).key;
 
     const message = {
-      senderId: currentUserId,
-      receiverId: selectedUserId,
+      sender: currentUserId,
+      receiver: selectedUserId,
       mediaUrl: preview.originalUrl,
+      thumbnail: preview.thumbnail || "",
+      compressedVideo: preview.originalUrl?.includes("compressed") ? preview.originalUrl : "",
+      duration: preview.duration || null,
       mediaType: preview.type,
       timestamp: Date.now(),
       text: "",
       type: "media",
     };
 
-    const senderRef = ref(database, `Messages/${currentUserId}_${selectedUserId}`);
-    push(senderRef, message);
-    
-    onClose();
-  };
+    const updates = {};
+    updates[`Messages/${chatId}/${newMessageKey}`] = message;
+    update(ref(database), updates);
+    const notificationData = {
+      from: currentUserId,
+      to: selectedUserId,
+      type: "media",
+      mediaType: preview.type,
+      read: false,
+      timestamp: Date.now(),
+    };
+    push(ref(database, `Notifications/${selectedUserId}`), notificationData);
+      onClose();
+    };
 
   return (
     <div className="modal-backdrop">
@@ -71,16 +110,13 @@ function UploadMedia({ currentUserId, selectedUserId, onClose }) {
             )}
 
             <div style={{ marginTop: '10px' }}>
-             <a
+              <a
                 href={`http://localhost:5000/api/upload/download/${preview.originalUrl.split('/').pop()}`}
                 download
                 className="download-btn"
-             > 
-                 
-            </a>
-
-
-
+              >
+                Download
+              </a>
               <button onClick={handleSend}>Send</button>
             </div>
           </div>

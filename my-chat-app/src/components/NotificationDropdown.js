@@ -14,10 +14,15 @@ const NotificationDropdown = () => {
     const unsub = onValue(notiRef, (snapshot) => {
       const data = snapshot.val() || {};
       const notiList = Object.entries(data)
-        .map(([id, value]) => ({ id, ...value }))
-        .sort((a, b) => b.timestamp - a.timestamp);
-
-      setNotifications(notiList);
+        .map(([id, value]) => ({
+          id,
+          ...value,
+          read: value.read ?? false, // 👈 ensures read field exists
+        }))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        if (JSON.stringify(notiList) !== JSON.stringify(notifications)) {
+          setNotifications(notiList);
+        }
     });
 
     return () => unsub();
@@ -42,7 +47,7 @@ const NotificationDropdown = () => {
               !n.read ? "bg-gray-50 font-semibold" : ""
             }`}
           >
-            {n.type === "message" && `New message from ${n.senderName}`}
+            {n.type === "message" && `New message from ${n.senderName || "Unknown"}`}
             {n.type === "call" && `Incoming call from ${n.senderName}`}
             {n.type === "missed_call" && `Missed call from ${n.senderName}`}
           </div>

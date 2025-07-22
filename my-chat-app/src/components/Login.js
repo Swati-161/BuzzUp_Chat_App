@@ -1,27 +1,51 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { useAuth } from "../context/AuthContext";
-function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
-  const { login } = useAuth(); 
-  const handleSubmit = async (e) => {
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../firebase"; // ensure firebase.js is configured correctly
+
+const Login = ({ onToggle }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+
+  const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", form);
-      login(res.data.token); 
-      alert("Login successful");
-    } catch (err) {
-      alert(err.response.data.message);
+      await signInWithEmailAndPassword(auth, email, password);
+      
+    } catch (error) {
+      setErr("Invalid credentials");
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input placeholder="Email" onChange={(e) => setForm({...form, email: e.target.value})} value={form.email} />
-      <input placeholder="Password" type="password" onChange={(e) => setForm({...form, password: e.target.value})} value={form.password}/>
-      <button type="submit">Login</button>
+    <form id="auth-form" onSubmit={handleLogin}>
+      <div id="form-title">Login</div>
+      <input
+        type="email"
+        placeholder="Email"
+        className="form-input"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        className="form-input"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
+      <button type="submit" id="submit-btn">Login</button>
+      {err && <p style={{ color: "red", marginTop: "10px" }}>{err}</p>}
+      <p style={{ marginTop: "10px" }}>
+        Don’t have an account?{" "}
+        <span style={{ color: "blue", cursor: "pointer" }} onClick={onToggle}>
+          Register here
+        </span>
+      </p>
     </form>
   );
-}
+};
 
 export default Login;

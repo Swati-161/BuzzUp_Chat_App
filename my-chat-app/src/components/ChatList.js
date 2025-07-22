@@ -1,28 +1,29 @@
-
-
 import React, { useEffect, useState } from "react";
 import { ref, onValue } from "firebase/database";
 import { database } from "../firebase";
+import { useAuth } from "../context/AuthContext";
 
-function ChatList({ currentUser }) {
+function ChatList() {
+  
+  const { firebaseUser } = useAuth();
   const [chatContacts, setChatContacts] = useState([]);
-
+  
   useEffect(() => {
-    if (currentUser?.uid) {
-      const chatListRef = ref(database, `Chatlist/${currentUser.uid}`);
-      const unsubscribe = onValue(chatListRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          const contacts = Object.keys(data);
-          setChatContacts(contacts);
-        } else {
-          setChatContacts([]);
-        }
-      });
+    if (!firebaseUser?.uid) return;
 
-      return () => unsubscribe(); 
-    }
-  }, [currentUser]);
+    const chatListRef = ref(database, `Chatlist/${firebaseUser.uid}`);
+    const unsubscribe = onValue(chatListRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const contacts = Object.keys(data);
+        setChatContacts(contacts);
+      } else {
+        setChatContacts([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [firebaseUser]);
 
   return (
     <div>

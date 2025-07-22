@@ -1,11 +1,12 @@
-// Header.js
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { ref, update } from "firebase/database";
 import { database } from "../firebase";
+import { useAuth } from "../context/AuthContext";
 import "./Header.css";
 
-function Header({ currentUser, notifications, setActiveChatUser, setNotifications }) {
+function Header({notifications, setActiveChatUser, setNotifications }) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const { firebaseUser } = useAuth();
 
   const grouped = notifications.reduce((acc, noti) => {
     acc[noti.from] = acc[noti.from] ? acc[noti.from] + 1 : 1;
@@ -15,17 +16,17 @@ function Header({ currentUser, notifications, setActiveChatUser, setNotification
   const unreadCount = notifications.length;
 
   const handleUserClick = (senderId) => {
-    // Mark all messages from this user as read
+    
     const updates = {};
     notifications.forEach((n) => {
       if (n.from === senderId) {
-        updates[`Notifications/${currentUser.uid}/${n.id}/read`] = true;
+        updates[`Notifications/${firebaseUser.uid}/${n.id}/read`] = true;
       }
     });
     update(ref(database), updates);
     setActiveChatUser(senderId);
     setShowDropdown(false);
-    // Remove those notifications from state
+    
     setNotifications((prev) => prev.filter((n) => n.from !== senderId));
   };
 

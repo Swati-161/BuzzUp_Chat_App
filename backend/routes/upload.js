@@ -4,6 +4,7 @@ const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
 const ffprobe = require('ffprobe-static');
+const verifyFirebaseToken = require('../middleware/verifyFirebaseToken');
 
 const fs = require('fs');
 const path = require('path');
@@ -12,7 +13,7 @@ const router = express.Router();
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobe.path);
 
-// Set up multer storage
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/media/');
@@ -25,14 +26,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Upload endpoint
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) => {
   const file = req.file;
   const mime = file.mimetype;
 
   const response = {
     originalUrl: `/uploads/media/${file.filename}`,
-    type: mime.split('/')[0], // image, video, audio
+    type: mime.split('/')[0], 
   };
 
   try {
@@ -42,33 +42,52 @@ router.post('/', upload.single('file'), async (req, res) => {
       response.thumbnail = `/uploads/thumbnails/thumb-${file.filename}.jpg`;
 
     } else if (mime.startsWith('video/')) {
-      const thumbPath = `uploads/thumbnails/thumb-${file.filename}.jpg`;
-      await new Promise((resolve, reject) => {
-        ffmpeg(file.path)
-          .on('end', resolve)
-          .on('error', reject)
-          .screenshots({
-            timestamps: ['50%'],
-            filename: `thumb-${file.filename}.jpg`,
-            folder: 'uploads/thumbnails',
-            size: '300x?',
-          });
-      });
-      response.thumbnail = `/uploads/thumbnails/thumb-${file.filename}.jpg`;
+        const thumbPath = `uploads/thumbnails/thumb-${file.filename}.jpg`;
+        const compressedVideoPath = `uploads/compressed/compressed-${file.filename}`;
 
-    } else if (mime.startsWith('audio/')) {
-      await new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(file.path, (err, metadata) => {
-          if (err) reject(err);
-          else {
-            response.duration = metadata.format.duration;
-            resolve();
-          }
+        await new Promise((resolve, reject) => {
+          ffmpeg(file.path)
+            .on('end', resolve)
+            .on('error', reject)
+            .screenshots({
+              timestamps: ['50%'],
+              filename: `thumb-${file.filename}.jpg`,
+              folder: 'uploads/thumbnails',
+              size: '300x?',
+            });
         });
-      });
-    }
 
-    res.status(200).json(response);
+        await new Promise((resolve, reject) => {
+          ffmpeg(file.path)
+            .output(compressedVideoPath)
+            .outputOptions([
+              '-vf', 'scale=640:-1',       
+              '-crf', '28',                
+              '-preset', 'fast',           
+            ])
+            .on('end', resolve)
+            .on('error', reject)
+            .run();  
+        });
+
+        response.thumbnail = `/uploads/thumbnails/thumb-${file.filename}.jpg`;
+        response.compressedVideo = `/uploads/compressed/compressed-${file.filename}`;
+      
+      } else if (mime.startsWith('audio/')) {
+          await new Promise((resolve, reject) => {
+            ffmpeg.ffprobe(file.path, (err, metadata) => {
+              if (err) reject(err);
+              else {
+                response.duration = metadata?.format?.duration || 0;
+                response.mediaType = "audio";
+                response.type = "media";
+                resolve();
+              }
+            });
+          });
+        }
+
+        res.status(200).json(response);
 
   } catch (error) {
     console.error(error);
@@ -81,7 +100,7 @@ router.get('/download/:filename', (req, res) => {
   const filePath = path.join(__dirname, '../uploads/media/', filename);
   
   if (fs.existsSync(filePath)) {
-    res.download(filePath); // This forces the browser to download
+    res.download(filePath); 
   } else {
     res.status(404).send('File not found');
   }
