@@ -1,5 +1,5 @@
 // middleware/verifyFirebaseToken.js
-const admin = require("../firebaseAdmin");
+const admin = require("../firebase.js");
 
 const verifyFirebaseToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
