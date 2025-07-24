@@ -3,13 +3,13 @@ import { getDatabase } from "firebase/database";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAEvq9G--IpmfY8DSnAbnpl84kKX5dQk1M",
-  authDomain: "buzzup-724ca.firebaseapp.com",
-  databaseURL: "https://buzzup-724ca-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "buzzup-724ca",
-  storageBucket: "buzzup-724ca.firebasestorage.app",
-  messagingSenderId: "674406150055",
-  appId: "1:674406150055:web:051b1f302eddf70b315082"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  // databaseURL: "https://buzzup-724ca-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
 };
 const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
