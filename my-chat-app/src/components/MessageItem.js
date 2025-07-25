@@ -129,7 +129,8 @@ function MessageItem({ msg, onMediaClick }) {
                   }}
                 >
                   <img
-                    src={`http://localhost:5000/thumbnails${msg.mediaUrl}`}
+                    src={`${process.env.REACT_APP_API_BASE_URL}
+/thumbnails${msg.mediaUrl}`}
                     alt="shared an image"
                     className="chat-image"
                     style={{
@@ -138,7 +139,8 @@ function MessageItem({ msg, onMediaClick }) {
                       objectFit: "contain",
                     }}
                     onClick={() =>
-                      onMediaClick({ type: "image", url: `http://localhost:5000${msg.mediaUrl}` })
+                      onMediaClick({ type: "image", url: `${process.env.REACT_APP_API_BASE_URL}
+${msg.mediaUrl}` })
                     }
                   />
                   <span
@@ -153,7 +155,8 @@ function MessageItem({ msg, onMediaClick }) {
                 </div>
 
                 <a
-                  href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
+                  href={`${process.env.REACT_APP_API_BASE_URL}
+/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                   download
                   className="download-btn"
                 >
@@ -169,21 +172,25 @@ function MessageItem({ msg, onMediaClick }) {
                 className="chat-video"
                 controls
                 style={{ width: "100%", borderRadius: "8px", cursor: "pointer" }}
-                poster={`http://localhost:5000/thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
+                poster={`${process.env.REACT_APP_API_BASE_URL}
+/thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
                 onClick={() =>
                     onMediaClick({
                     type: "video",
-                    url: `http://localhost:5000${msg.mediaUrl}`,
+                    url: `${process.env.REACT_APP_API_BASE_URL}
+${msg.mediaUrl}`,
                     })
                 }
                 >
-                <source src={`http://localhost:5000${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
+                <source src={`${process.env.REACT_APP_API_BASE_URL}
+${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
                 Your browser does not support the video tag.
                 </video>
 
                 <div style={{ marginTop: "8px", textAlign: "center" }}>
                 <a
-                    href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
+                    href={`${process.env.REACT_APP_API_BASE_URL}
+/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                     download
                     className="download-btn"
                 >
@@ -202,11 +209,13 @@ function MessageItem({ msg, onMediaClick }) {
                     onClick={() =>
                         onMediaClick({
                         type: "audio",
-                        url: `http://localhost:5000${msg.mediaUrl}`,
+                        url: `${process.env.REACT_APP_API_BASE_URL}
+${msg.mediaUrl}`,
                         })
                     }
                     >
-                    <source src={`http://localhost:5000${msg.mediaUrl}`} type="audio/mpeg" />
+                    <source src={`${process.env.REACT_APP_API_BASE_URL}
+${msg.mediaUrl}`} type="audio/mpeg" />
                     Your browser does not support the audio element.
                     </audio>
 
@@ -218,7 +227,8 @@ function MessageItem({ msg, onMediaClick }) {
 
                     <div style={{ marginTop: "8px", textAlign: "center" }}>
                     <a
-                        href={`http://localhost:5000/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
+                        href={`${process.env.REACT_APP_API_BASE_URL}
+/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                         download
                         className="download-btn"
                     >

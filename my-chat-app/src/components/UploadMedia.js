@@ -23,12 +23,17 @@ function UploadMedia({ selectedUserId, onClose }) {
 
     try {
       const token = await firebaseUser.getIdToken();
-      const response = await axios.post("http://localhost:5000/api/upload", formData, {
+     const response = await axios.post(
+      `${process.env.REACT_APP_API_BASE_URL}/api/upload`,
+      formData,
+      {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${firebaseUser.accessToken}`,
         },
-      });
+      }
+    );
+
 
       const fileType = file.type.split("/")[0]; // 'image', 'video', 'audio'
       const mediaType = response.data.mediaType || fileType;
@@ -95,23 +100,28 @@ function UploadMedia({ selectedUserId, onClose }) {
         {preview && (
           <div className="preview-box">
             {preview.type === 'image' && (
-              <img src={`http://localhost:5000${preview.thumbnail}`} width="200" alt="thumbnail" />
+              <img src={`${process.env.REACT_APP_API_BASE_URL}
+${preview.thumbnail}`} width="200" alt="thumbnail" />
             )}
             {preview.type === 'video' && (
-              <video width="300" controls poster={`http://localhost:5000${preview.thumbnail}`}>
-                <source src={`http://localhost:5000${preview.originalUrl}`} />
+              <video width="300" controls poster={`${process.env.REACT_APP_API_BASE_URL}
+${preview.thumbnail}`}>
+                <source src={`${process.env.REACT_APP_API_BASE_URL}
+${preview.originalUrl}`} />
               </video>
             )}
             {preview.type === 'audio' && (
               <div>
-                <audio controls src={`http://localhost:5000${preview.originalUrl}`} />
+                <audio controls src={`${process.env.REACT_APP_API_BASE_URL}
+${preview.originalUrl}`} />
                 <p>Duration: {Math.round(preview.duration)} sec</p>
               </div>
             )}
 
             <div style={{ marginTop: '10px' }}>
               <a
-                href={`http://localhost:5000/api/upload/download/${preview.originalUrl.split('/').pop()}`}
+                href={`${process.env.REACT_APP_API_BASE_URL}
+/api/upload/download/${preview.originalUrl.split('/').pop()}`}
                 download
                 className="download-btn"
               >

@@ -30,9 +30,10 @@ function Chat({ onLogout}) {
     if (!firebaseUser || !token) return;
     (async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/users", {
+        const res = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/api/users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         setUsers(res.data);
       } catch (err) {
         console.error("Failed to fetch users", err);
@@ -134,9 +135,10 @@ function Chat({ onLogout}) {
 
     let detectedLang = "en";
     try {
-      const res = await axios.post("http://localhost:5000/api/detect-language", {
+      const res = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/detect-language`, {
         text: message,
       });
+
       detectedLang = res.data.language;
     } catch (err) {
       console.error("Language detection failed", err);
