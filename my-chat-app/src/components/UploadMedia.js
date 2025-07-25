@@ -24,7 +24,7 @@ function UploadMedia({ selectedUserId, onClose }) {
     try {
       const token = await firebaseUser.getIdToken();
      const response = await axios.post(
-      `${process.env.REACT_APP_API_BASE_URL}/api/upload`,
+      `${process.env.REACT_APP_API_URL}/api/upload`,
       formData,
       {
         headers: {
