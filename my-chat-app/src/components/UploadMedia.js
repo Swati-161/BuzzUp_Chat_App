@@ -100,28 +100,23 @@ function UploadMedia({ selectedUserId, onClose }) {
         {preview && (
           <div className="preview-box">
             {preview.type === 'image' && (
-              <img src={`${process.env.REACT_APP_API_URL}
-${preview.thumbnail}`} width="200" alt="thumbnail" />
+              <img src={`${process.env.REACT_APP_API_URL}${preview.thumbnail}`} width="200" alt="thumbnail" />
             )}
             {preview.type === 'video' && (
-              <video width="300" controls poster={`${process.env.REACT_APP_API_URL}
-${preview.thumbnail}`}>
-                <source src={`${process.env.REACT_APP_API_URL}
-${preview.originalUrl}`} />
+              <video width="300" controls poster={`${process.env.REACT_APP_API_URL}${preview.thumbnail}`}>
+                <source src={`${process.env.REACT_APP_API_URL}${preview.originalUrl}`} />
               </video>
             )}
             {preview.type === 'audio' && (
               <div>
-                <audio controls src={`${process.env.REACT_APP_API_URL}
-${preview.originalUrl}`} />
+                <audio controls src={`${process.env.REACT_APP_API_URL}${preview.originalUrl}`} />
                 <p>Duration: {Math.round(preview.duration)} sec</p>
               </div>
             )}
 
             <div style={{ marginTop: '10px' }}>
               <a
-                href={`${process.env.REACT_APP_API_URL}
-/api/upload/download/${preview.originalUrl.split('/').pop()}`}
+                href={`${process.env.REACT_APP_API_URL}/api/upload/download/${preview.originalUrl.split('/').pop()}`}
                 download
                 className="download-btn"
               >
