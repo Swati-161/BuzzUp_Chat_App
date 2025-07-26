@@ -3,7 +3,7 @@ const Message = require('../models/message');
 const auth = require('../middleware/authMiddleware');
 const router = express.Router();
 
-router.get('/', auth, async (req, res) => {
+process.env.REACT_APP_API_URL('/', auth, async (req, res) => {
   try {
     const messages = await Message.find({
       $or: [{ sender: req.user.id }, { receiver: req.user.id }],
