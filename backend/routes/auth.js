@@ -48,14 +48,14 @@ router.post('/login', async (req, res) => {
     }
 });
 
-//  GET /api/auth/profile - protected route
-process.env.REACT_APP_API_URL('/profile', protect, async (req, res) => {
-    try {
-        const user = await User.findById(req.user.id); 
-        res.json(req.user); 
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+// GET /api/auth/profile - protected route
+router.get('/profile', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id); 
+    res.json(user); 
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // PUT /api/auth/update
