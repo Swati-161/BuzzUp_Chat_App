@@ -7,4 +7,4 @@ admin.initializeApp({
 });
 const db = admin.database();
 
-module.exports = { admin, db };
+module.exports = { admin};
