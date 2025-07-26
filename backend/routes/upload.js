@@ -97,13 +97,18 @@ router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) =>
 
 router.get('/download/:filename', (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, '../uploads/media/', filename);
+
+  const folders = ['media', 'compressed', 'thumbnails'];
   
-  if (fs.existsSync(filePath)) {
-    res.download(filePath); 
-  } else {
-    res.status(404).send('File not found');
+  for (const folder of folders) {
+    const filePath = path.join(__dirname, '../uploads', folder, filename);
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath); // File found, send download
+    }
   }
+
+  // File not found in any folder
+  res.status(404).send('File not found');
 });
 
 module.exports = router;
