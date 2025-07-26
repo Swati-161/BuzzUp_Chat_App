@@ -95,7 +95,7 @@ router.post('/', verifyFirebaseToken, upload.single('file'), async (req, res) =>
   }
 });
 
-process.env.REACT_APP_API_URL('/download/:filename', (req, res) => {
+router.get('/download/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(__dirname, '../uploads/media/', filename);
   
