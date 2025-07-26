@@ -22,17 +22,18 @@ function UploadMedia({ selectedUserId, onClose }) {
     formData.append("file", file); // ✅ Ensure field name matches backend
 
     try {
-      const token = await firebaseUser.getIdToken();
-     const response = await axios.post(
-      `${process.env.REACT_APP_API_URL}/api/upload`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${firebaseUser.accessToken}`,
-        },
-      }
-    );
+    const token = await firebaseUser.getIdToken();
+
+    const response = await axios.post(
+  `${process.env.REACT_APP_API_URL}/api/upload`,
+  formData,
+  {
+    headers: {
+      "Content-Type": "multipart/form-data",
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
 
       const fileType = file.type.split("/")[0]; // 'image', 'video', 'audio'
