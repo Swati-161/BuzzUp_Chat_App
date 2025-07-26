@@ -129,7 +129,7 @@ function MessageItem({ msg, onMediaClick }) {
                   }}
                 >
                   <img
-                    src={`${process.env.REACT_APP_API_BASE_URL}
+                    src={`${process.env.REACT_APP_API_URL}
 /thumbnails${msg.mediaUrl}`}
                     alt="shared an image"
                     className="chat-image"
@@ -139,7 +139,7 @@ function MessageItem({ msg, onMediaClick }) {
                       objectFit: "contain",
                     }}
                     onClick={() =>
-                      onMediaClick({ type: "image", url: `${process.env.REACT_APP_API_BASE_URL}
+                      onMediaClick({ type: "image", url: `${process.env.REACT_APP_API_URL}
 ${msg.mediaUrl}` })
                     }
                   />
@@ -155,7 +155,7 @@ ${msg.mediaUrl}` })
                 </div>
 
                 <a
-                  href={`${process.env.REACT_APP_API_BASE_URL}
+                  href={`${process.env.REACT_APP_API_URL}
 /api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                   download
                   className="download-btn"
@@ -172,24 +172,24 @@ ${msg.mediaUrl}` })
                 className="chat-video"
                 controls
                 style={{ width: "100%", borderRadius: "8px", cursor: "pointer" }}
-                poster={`${process.env.REACT_APP_API_BASE_URL}
+                poster={`${process.env.REACT_APP_API_URL}
 /thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
                 onClick={() =>
                     onMediaClick({
                     type: "video",
-                    url: `${process.env.REACT_APP_API_BASE_URL}
+                    url: `${process.env.REACT_APP_API_URL}
 ${msg.mediaUrl}`,
                     })
                 }
                 >
-                <source src={`${process.env.REACT_APP_API_BASE_URL}
+                <source src={`${process.env.REACT_APP_API_URL}
 ${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
                 Your browser does not support the video tag.
                 </video>
 
                 <div style={{ marginTop: "8px", textAlign: "center" }}>
                 <a
-                    href={`${process.env.REACT_APP_API_BASE_URL}
+                    href={`${process.env.REACT_APP_API_URL}
 /api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                     download
                     className="download-btn"
@@ -209,12 +209,12 @@ ${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
                     onClick={() =>
                         onMediaClick({
                         type: "audio",
-                        url: `${process.env.REACT_APP_API_BASE_URL}
+                        url: `${process.env.REACT_APP_API_URL}
 ${msg.mediaUrl}`,
                         })
                     }
                     >
-                    <source src={`${process.env.REACT_APP_API_BASE_URL}
+                    <source src={`${process.env.REACT_APP_API_URL}
 ${msg.mediaUrl}`} type="audio/mpeg" />
                     Your browser does not support the audio element.
                     </audio>
@@ -227,7 +227,7 @@ ${msg.mediaUrl}`} type="audio/mpeg" />
 
                     <div style={{ marginTop: "8px", textAlign: "center" }}>
                     <a
-                        href={`${process.env.REACT_APP_API_BASE_URL}
+                        href={`${process.env.REACT_APP_API_URL}
 /api/upload/download/${msg.mediaUrl.split("/").pop()}`}
                         download
                         className="download-btn"
