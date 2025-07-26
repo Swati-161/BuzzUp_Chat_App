@@ -14,43 +14,58 @@ function UploadMedia({ selectedUserId, onClose }) {
   const [preview, setPreview] = useState(null);
 
   const handleDrop = async (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
+  e.preventDefault(); // 🚫 Stops default browser behavior
 
-    const formData = new FormData();
-    formData.append("file", file); // ✅ Ensure field name matches backend
+  console.log("🔥 File dropped");
 
-    try {
-    const token = await firebaseUser.getIdToken();
+  const file = e.dataTransfer.files[0];
+  if (!file) {
+    console.error("❌ No file dropped.");
+    return;
+  }
+
+  console.log("📦 File info:", file);
+
+  const formData = new FormData();
+  formData.append("file", file); // 👈 this 'file' must match backend's multer field name
+
+  try {
+    const token = await firebaseUser.getIdToken(); // ✅ correct Firebase ID token
+
+    console.log("🔐 Firebase Token:", token);
+    console.log("🚀 Uploading to:", `${process.env.REACT_APP_API_URL}/api/upload`);
 
     const response = await axios.post(
-  `${process.env.REACT_APP_API_URL}/api/upload`,
-  formData,
-  {
-    headers: {
-      "Content-Type": "multipart/form-data",
-      Authorization: `Bearer ${token}`,
-    },
+      `${process.env.REACT_APP_API_URL}/api/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`, // ✅ corrected this line
+        },
+      }
+    );
+
+    console.log("✅ Upload response:", response.data);
+
+    const fileType = file.type.split("/")[0]; // 'image', 'video', etc.
+    const mediaType = response.data.mediaType || fileType;
+
+    const previewData = {
+      originalUrl: response.data.compressedVideo || response.data.originalUrl,
+      thumbnail: response.data.thumbnail || "",
+      duration: response.data.duration || null,
+      type: mediaType,
+    };
+
+    console.log("📸 Preview generated:", previewData);
+
+    setPreview(previewData); // 👈 triggers preview box in UI
+
+  } catch (err) {
+    console.error("❌ Upload failed:", err.response?.data || err.message);
   }
-);
-
-
-      const fileType = file.type.split("/")[0]; // 'image', 'video', 'audio'
-      const mediaType = response.data.mediaType || fileType;
-
-      const previewData = {
-        originalUrl: response.data.compressedVideo || response.data.originalUrl,
-        thumbnail: response.data.thumbnail || "",
-        duration: response.data.duration || null,
-        type: mediaType,
-      };
-
-      setPreview(previewData);
-    } catch (err) {
-      console.error("Error uploading media:", err);
-    }
-  };
+};
 
   const handleSend = () => {
     if (!preview || !currentUserId || !selectedUserId) return;
