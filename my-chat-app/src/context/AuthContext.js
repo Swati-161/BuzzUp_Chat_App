@@ -1,18 +1,16 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
-import { auth } from "../firebase"; 
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { signOut, onAuthStateChanged } from "firebase/auth";
+import { ref, get } from "firebase/database";
+import { auth, database } from "../firebase";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState(null);
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading]           = useState(true);
+
+  // Use a ref for the cache so resolveUsername never changes reference
+  const usernameCacheRef = useRef({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -22,36 +20,33 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  const register = async (email, password) => {
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      throw err;
-    }
-  };
+  // Stable function — cache in ref means this never triggers re-renders
+  const resolveUsername = useCallback(async (uid) => {
+    if (!uid) return "Unknown";
+    if (usernameCacheRef.current[uid]) return usernameCacheRef.current[uid];
 
-  const login = async (email, password) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) {
-      throw err;
+      const snap = await get(ref(database, `users/${uid}`));
+      const data = snap.val();
+      const name = data?.username || data?.displayName || uid.slice(0, 8) + "...";
+      usernameCacheRef.current[uid] = name;
+      return name;
+    } catch {
+      return uid.slice(0, 8) + "...";
     }
-  };
+  }, []); // stable forever — no deps needed
 
-  const logout = async () => {
-    await signOut(auth);
-  };
+  const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, login, register, logout }}>
+    <AuthContext.Provider value={{ firebaseUser, logout, resolveUsername }}>
       {loading ? (
-        <div style={{ textAlign: 'center', marginTop: '20%' }}>
-          <p style={{ fontSize: '1.2rem', color: '#555' }}>Loading...</p>
-        </div>
+        <div className="loading-screen">connecting</div>
       ) : (
         children
       )}
     </AuthContext.Provider>
   );
-}
+};
+
 export const useAuth = () => useContext(AuthContext);

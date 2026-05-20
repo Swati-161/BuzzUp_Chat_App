@@ -1,271 +1,300 @@
 import React, { useState, useEffect, useRef } from "react";
 import { database } from "../firebase";
-import { ref, push, onValue, set } from "firebase/database";
-import axios from "axios";
+import { ref, push, onValue, update, get, remove } from "firebase/database";
 import "./chat.css";
-import Header from "./Header";
-import UploadMedia from './UploadMedia';
-import MessageItem from "../components/MessageItem";
+import ChatSidebar from "./ChatSidebar";
+import UploadMedia from "./UploadMedia";
+import MessageItem from "./MessageItem";
 import { useAuth } from "../context/AuthContext";
-import UserSearchBox from "../components/UserSearchBox";
+import { Paperclip, Send, X, MessageSquare } from "lucide-react";
 
 const getChatId = (uid1, uid2) =>
   uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
 
-function Chat({ onLogout}) {
-  const { firebaseUser } = useAuth();
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [activeChatUser, setActiveChatUser] = useState("");
-  const [notifications, setNotifications] = useState([]);
-  const [showUpload, setShowUpload] = useState(false);
-  const [previewMedia, setPreviewMedia] = useState(null);
-  const [userLang, setUserLang] = useState(localStorage.getItem("userLang") || "hi");
+function Chat({ onLogout }) {
+  const { firebaseUser, resolveUsername } = useAuth();
+  const [message, setMessage]               = useState("");
+  const [messages, setMessages]             = useState([]);
+  const [activeChatUser, setActiveChatUser] = useState(null);
+  const [activeName, setActiveName]         = useState("");
+  const [notifications, setNotifications]   = useState([]);
+  const [showUpload, setShowUpload]         = useState(false);
+  const [previewMedia, setPreviewMedia]     = useState(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  const bottomRef = useRef(null);
-  const token = localStorage.getItem("token");
+  const bottomRef     = useRef(null);
+  const activeChatRef = useRef(null);
 
-  useEffect(() => {
-    if (!firebaseUser || !token) return;
-    (async () => {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+  useEffect(() => { activeChatRef.current = activeChatUser; }, [activeChatUser]);
 
-        setUsers(res.data);
-      } catch (err) {
-        console.error("Failed to fetch users", err);
-      }
-    })();
-  }, [firebaseUser, token]);
-
-  useEffect(() => {
-    if (!firebaseUser?.uid || !activeChatUser) return;
-
-    const chatId = getChatId(firebaseUser.uid, activeChatUser);
-    const messagesRef = ref(database, `Messages/${chatId}`);
-
-    return onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      const messageArray = data ? Object.values(data) : [];
-      setMessages(messageArray);
-
-      const notiRef = ref(database, `Notifications/${firebaseUser.uid}`);
-      onValue(notiRef, (snap) => {
-        const all = snap.val() || {};
-        Object.entries(all).forEach(([id, notif]) => {
-          if (notif.from === activeChatUser && !notif.read) {
-            set(ref(database, `Notifications/${firebaseUser.uid}/${id}/read`), true);
-          }
-        });
-      });
-    });
-  }, [firebaseUser, activeChatUser]);
-
-  useEffect(() => {
-    if (!firebaseUser?.uid || !activeChatUser) return;
-
-    const chatId = getChatId(firebaseUser.uid, activeChatUser);
-    const messagesRef = ref(database, `Messages/${chatId}`);
-
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
-
-      Object.entries(data).forEach(([msgId, msg]) => {
-        const isIncomingUnread =
-          msg.sender === activeChatUser &&
-          msg.receiver === firebaseUser.uid &&
-          msg.read === false;
-
-        if (isIncomingUnread) {
-          // ✅ Mark message as read
-          const msgRef = ref(database, `Messages/${chatId}/${msgId}`);
-          set(msgRef, { ...msg, read: true });
-
-          // ✅ Mark notification as read (if matching exists)
-          const notifRef = ref(database, `Notifications/${firebaseUser.uid}`);
-          onValue(notifRef, (notiSnap) => {
-            const notis = notiSnap.val() || {};
-            Object.entries(notis).forEach(([notiId, noti]) => {
-              if (!noti.read && noti.from === activeChatUser) {
-                set(ref(database, `Notifications/${firebaseUser.uid}/${notiId}/read`), true);
-              }
-            });
-          }, { onlyOnce: true });
-        }
-      });
-    });
-
-    return () => unsubscribe();
-  }, [firebaseUser, activeChatUser]);
-
-
-  useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
+  // ── Clear ActiveChats on page unload/close ────────────────────
   useEffect(() => {
     if (!firebaseUser?.uid) return;
+    const myUid = firebaseUser.uid;
 
-    const notificationRef = ref(database, `Notifications/${firebaseUser.uid}`);
+    // Clear stale ActiveChats entry immediately on mount (handles reload case)
+    remove(ref(database, `ActiveChats/${myUid}`));
 
-    return onValue(notificationRef, (snapshot) => {
-      const data = snapshot.val();
-      const allNotifs = data ? Object.entries(data).map(([id, n]) => ({ id, read: false, ...n, read: n.read ?? false })) : [];
+    const handleUnload = () => {
+      // Best-effort clear on tab close
+      navigator.sendBeacon && remove(ref(database, `ActiveChats/${myUid}`));
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      remove(ref(database, `ActiveChats/${myUid}`));
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, [firebaseUser]);
 
-      const unreadFromOthers = allNotifs.filter(
-        (n) => !n.read && n.from !== activeChatUser
+  // ── Notifications listener ─────────────────────────────────────
+  useEffect(() => {
+    if (!firebaseUser?.uid) return;
+    const myUid = firebaseUser.uid;
+    const notifRef = ref(database, `Notifications/${myUid}`);
+
+    return onValue(notifRef, (snap) => {
+      const data = snap.val() || {};
+      const entries = Object.entries(data).map(([id, n]) => ({
+        id, ...n, read: n.read ?? false,
+      }));
+
+      // Immediately mark read any notif from the currently open chat
+      const needsRead = entries.filter(
+        (n) => !n.read && n.from === activeChatRef.current
       );
+      if (needsRead.length > 0) {
+        const updates = {};
+        needsRead.forEach((n) => {
+          updates[`Notifications/${myUid}/${n.id}/read`] = true;
+        });
+        update(ref(database), updates);
+      }
 
-      setNotifications(unreadFromOthers);
+      // Only show notifs from users NOT currently open
+      setNotifications(
+        entries.filter((n) => !n.read && n.from !== activeChatRef.current)
+      );
     });
+  }, [firebaseUser]);
+
+  // ── Messages + mark-as-read ────────────────────────────────────
+  useEffect(() => {
+    if (!firebaseUser?.uid || !activeChatUser) return;
+
+    const myUid    = firebaseUser.uid;
+    const theirUid = activeChatUser;
+
+    // Tell Firebase this user has this chat open
+    update(ref(database), { [`ActiveChats/${myUid}`]: theirUid });
+
+    setLoadingMessages(true);
+
+    // Mark all existing notifications from them as read
+    get(ref(database, `Notifications/${myUid}`)).then((snap) => {
+      const notifs = snap.val() || {};
+      const updates = {};
+      Object.entries(notifs).forEach(([id, n]) => {
+        if (n.from === theirUid && !n.read) {
+          updates[`Notifications/${myUid}/${id}/read`] = true;
+        }
+      });
+      if (Object.keys(updates).length > 0) update(ref(database), updates);
+    });
+
+    const chatId  = getChatId(myUid, theirUid);
+    const msgsRef = ref(database, `Messages/${chatId}`);
+
+    const unsub = onValue(msgsRef, (snap) => {
+      const data = snap.val();
+      setLoadingMessages(false);
+      if (!data) { setMessages([]); return; }
+
+      const arr = Object.entries(data).map(([id, msg]) => ({ id, ...msg }));
+      arr.sort((a, b) => a.timestamp - b.timestamp);
+      setMessages(arr);
+
+      // Mark incoming messages as read
+      const msgUpdates = {};
+      arr.forEach(({ id, sender, receiver, read }) => {
+        if (sender === theirUid && receiver === myUid && !read) {
+          msgUpdates[`Messages/${chatId}/${id}/read`] = true;
+        }
+      });
+      if (Object.keys(msgUpdates).length > 0) update(ref(database), msgUpdates);
+    });
+
+    // When chat closes, clear the active status
+    return () => {
+      unsub();
+      remove(ref(database, `ActiveChats/${myUid}`));
+    };
   }, [firebaseUser, activeChatUser]);
 
+  // ── Auto-scroll ────────────────────────────────────────────────
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ── Resolve display name ───────────────────────────────────────
+  useEffect(() => {
+    if (!activeChatUser) { setActiveName(""); return; }
+    resolveUsername(activeChatUser).then(setActiveName);
+  }, [activeChatUser, resolveUsername]);
+
+  const handleSelectUser = (uid) => {
+    if (uid === activeChatUser) return;
+    setActiveChatUser(uid);
+  };
+
+  // ── Send message ───────────────────────────────────────────────
   const handleSend = async (e) => {
     e.preventDefault();
     if (!message.trim() || !firebaseUser?.uid || !activeChatUser) return;
 
-    const chatId = getChatId(firebaseUser.uid, activeChatUser);
-    const messagesRef = ref(database, `Messages/${chatId}`);
+    const myUid    = firebaseUser.uid;
+    const theirUid = activeChatUser;
+    const chatId   = getChatId(myUid, theirUid);
 
-    let detectedLang = "en";
-    try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/detect-language`, {
-        text: message,
+    push(ref(database, `Messages/${chatId}`), {
+      text:      message.trim(),
+      sender:    myUid,
+      receiver:  theirUid,
+      timestamp: Date.now(),
+      type:      "text",
+      read:      false,
+    });
+
+    update(ref(database), {
+      [`Chatlist/${myUid}/${theirUid}`]: true,
+      [`Chatlist/${theirUid}/${myUid}`]: true,
+    });
+
+    // Only send notification if receiver doesn't have this chat open
+    const activeSnap = await get(ref(database, `ActiveChats/${theirUid}`));
+    const theirOpenChat = activeSnap.val();
+    const isViewingMe = theirOpenChat === myUid;
+
+    if (!isViewingMe) {
+      push(ref(database, `Notifications/${theirUid}`), {
+        type:      "message",
+        from:      myUid,
+        to:        theirUid,
+        text:      message.trim(),
+        timestamp: Date.now(),
+        read:      false,
       });
-
-      detectedLang = res.data.language;
-    } catch (err) {
-      console.error("Language detection failed", err);
     }
-
-    const newMsg = {
-      text: message,
-      sender: firebaseUser.uid,
-      receiver: activeChatUser,
-      timestamp: Date.now(),
-      originalLang: detectedLang,
-      type: "text"
-    };
-
-    push(messagesRef, newMsg);
-
-    set(ref(database, `Chatlist/${firebaseUser.uid}/${activeChatUser}`), true);
-    set(ref(database, `Chatlist/${activeChatUser}/${firebaseUser.uid}`), true);
-
-    const notificationRef = ref(database, `Notifications/${activeChatUser}`);
-    const newNotification = {
-      type: "message",
-      from: firebaseUser.uid,
-      to: activeChatUser,
-      text: message,
-      timestamp: Date.now(),
-      read: false,
-    };
-    push(notificationRef, newNotification);
 
     setMessage("");
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
+  };
+
   return (
     <div className="chat-page">
-      <Header
-        currentUser={firebaseUser}
+      <ChatSidebar
+        activeChatUser={activeChatUser}
+        onSelectUser={handleSelectUser}
         notifications={notifications}
-        setActiveChatUser={setActiveChatUser}
-        setNotifications={setNotifications}
+        onLogout={onLogout}
       />
 
-      <UserSearchBox onUserSelected={(uid) => setActiveChatUser(uid)} />
-
-      <div className="chat-container">
-        <div className="message-area message-list">
+      <div className="chat-main">
+        <div className="chat-topbar">
           {activeChatUser ? (
-            messages.map((msg, idx) => (
-              <MessageItem
-                key={idx}
-                msg={msg}
-                currentUser={firebaseUser}
-                onMediaClick={(media) => setPreviewMedia(media)}
-              />
-            ))
+            <>
+              <div className="avatar">{activeName?.[0]?.toUpperCase() || "?"}</div>
+              <div>
+                <div className="chat-topbar-name">{activeName}</div>
+                <div className="chat-topbar-status">active now</div>
+              </div>
+            </>
           ) : (
-            <p>Your messages will appear here.</p>
+            <div className="chat-topbar-name" style={{ color: "var(--text-muted)" }}>
+              Select a conversation
+            </div>
           )}
-          <div ref={bottomRef} />
         </div>
 
-        {activeChatUser && (
+        {activeChatUser ? (
           <>
-            <form onSubmit={handleSend} className="chat-form">
-              <div className="input-send-container">
-                <textarea
-                  className="chat-input"
-                  placeholder="Type a message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows="3"
-                />
-                <button type="button" onClick={() => setShowUpload(true)} className="media-icon-btn">
-                  📎
-                </button>
-                <button type="submit" className="send-button">
-                  Send
-                </button>
-              </div>
-            </form>
-            {showUpload && (
-              <UploadMedia
-                currentUserId={firebaseUser.uid}
-                selectedUserId={activeChatUser}
-                onClose={() => setShowUpload(false)}
+            <div className="message-list">
+              {loadingMessages ? (
+                <div className="chat-status-text">loading...</div>
+              ) : messages.length === 0 ? (
+                <div className="chat-status-text">no messages yet — say hello!</div>
+              ) : (
+                messages.map((msg) => (
+                  <MessageItem
+                    key={msg.id || msg.timestamp}
+                    msg={msg}
+                    onMediaClick={setPreviewMedia}
+                  />
+                ))
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            <form className="chat-input-bar" onSubmit={handleSend}>
+              <button type="button" className="attach-btn"
+                onClick={() => setShowUpload(true)} title="Attach">
+                <Paperclip size={16} />
+              </button>
+              <textarea
+                className="chat-input"
+                placeholder="Message..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
               />
-            )}
+              <button type="submit" className="send-button" title="Send">
+                <Send size={15} />
+              </button>
+            </form>
           </>
+        ) : (
+          <div className="chat-empty">
+            <MessageSquare size={40} strokeWidth={1}
+              style={{ opacity: 0.2, color: "var(--text-secondary)" }} />
+            <div className="chat-empty-text">search or select a chat to begin</div>
+          </div>
         )}
       </div>
 
+      {showUpload && activeChatUser && (
+        <UploadMedia
+          currentUserId={firebaseUser.uid}
+          selectedUserId={activeChatUser}
+          onClose={() => setShowUpload(false)}
+        />
+      )}
+
       {previewMedia && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-          backgroundColor: "rgba(0,0,0,0.85)", display: "flex",
-          justifyContent: "center", alignItems: "center", zIndex: 1000
-        }}>
-          <div style={{ position: "relative" }}>
-            {previewMedia.type === 'image' && (
-              <img src={previewMedia.url} alt="Full preview" style={{ maxHeight: "90vh", maxWidth: "90vw" }} />
-            )}
-            {previewMedia.type === 'video' && (
-              <video controls autoPlay style={{ maxHeight: "90vh", maxWidth: "90vw" }}>
+        <div className="media-preview-overlay" onClick={() => setPreviewMedia(null)}>
+          <div className="media-preview-inner" onClick={(e) => e.stopPropagation()}>
+            {previewMedia.type === "image" && <img src={previewMedia.url} alt="preview" />}
+            {previewMedia.type === "video" && (
+              <video controls autoPlay>
                 <source src={previewMedia.url} />
               </video>
             )}
-            {previewMedia.type === 'audio' && (
-              <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
+            {previewMedia.type === "audio" && (
+              <div style={{ background: "var(--bg-raised)", padding: 24, borderRadius: "var(--radius-md)" }}>
                 <audio controls autoPlay src={previewMedia.url} />
               </div>
             )}
-            <button
-              onClick={() => setPreviewMedia(null)}
-              style={{
-                position: "absolute", top: 10, right: 10, padding: "5px 10px",
-                background: "white", border: "none", cursor: "pointer", fontWeight: "bold"
-              }}
-            >
-              ✖
+            <button className="media-preview-close" onClick={() => setPreviewMedia(null)}>
+              <X size={14} />
             </button>
           </div>
         </div>
       )}
-
-      <button className="logout-btn" onClick={onLogout}>
-        Logout
-      </button>
     </div>
   );
 }

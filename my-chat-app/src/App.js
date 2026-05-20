@@ -3,6 +3,7 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import Chat from "./components/Chat";
 import { auth } from "./firebase";
+import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
 
 const App = () => {
@@ -18,18 +19,20 @@ const App = () => {
     return () => unsubscribe();
   }, []);
 
-  if (loading) return <div id="main-container">Loading...</div>;
+  if (loading) {
+    return <div className="loading-screen">connecting</div>;
+  }
 
-  if (currentUser)
+  if (currentUser) {
     return (
-      <Chat currentUser={currentUser} onLogout={() => auth.signOut()} />
+      <AuthProvider>
+        <Chat onLogout={() => auth.signOut()} />
+      </AuthProvider>
     );
+  }
 
   return (
-    <div id="main-container">
-      <div id="app-title">BuzzUP</div>
-      <img src="https://cdn.dribbble.com/userupload/22071540/file/original-0acc3417152aaf7e8bbcf399b7840424.png?resize=752x&vertical=center" alt="App Logo" id="app-logo" />
-      
+    <div className="auth-page">
       {isRegister ? (
         <Register onToggle={() => setIsRegister(false)} />
       ) : (

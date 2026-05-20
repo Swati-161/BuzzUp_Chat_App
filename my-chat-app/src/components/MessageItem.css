@@ -1,58 +1,186 @@
 .message-item {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  max-width: 68%;
+  animation: msgIn 0.15s ease;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .message-item.sent {
+  align-self: flex-end;
   align-items: flex-end;
 }
 
-.message-bubble {
-  background-color: #e5e5e5;
-  padding: 10px;
-  border-radius: 10px;
-  max-width: 80%;
-  position: relative;
+.message-item.received {
+  align-self: flex-start;
+  align-items: flex-start;
 }
 
-.message-header {
+.message-bubble {
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  line-height: 1.5;
+  position: relative;
+  word-break: break-word;
+}
+
+.message-item.sent .message-bubble {
+  background: var(--bubble-sent);
+  color: var(--text-primary);
+  border-bottom-right-radius: 4px;
+}
+
+.message-item.received .message-bubble {
+  background: var(--bubble-recv);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.message-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .sender-label {
-  font-weight: bold;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
 }
 
-.dropdown-wrapper {
-  margin-left: auto;
+.message-item.sent .sender-label { color: rgba(245,166,35,0.6); }
+
+.message-timestamp {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .message-text {
+  margin: 0;
+  color: inherit;
+}
+
+/* Translation */
+.translate-btn {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.translate-btn:hover { color: var(--accent); }
+
+.translated-bubble {
   margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(245,166,35,0.08);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  position: relative;
 }
 
-.media-wrapper {
-  margin-top: 10px;
+.translated-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
 }
 
-.chat-image,
-.chat-video {
-  max-width: 100%;
-  border-radius: 10px;
-  margin-top: 10px;
-}
-
-.chat-audio {
-  width: 100%;
-  margin-top: 10px;
-}
-
-.message-text.translated {
-  color: #555;
+.translating-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
   font-style: italic;
   margin-top: 4px;
 }
 
+/* Media */
+.chat-image {
+  max-width: 240px;
+  max-height: 200px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: block;
+  object-fit: cover;
+  transition: opacity 0.15s;
+}
+
+.chat-image:hover { opacity: 0.85; }
+
+.chat-video-thumb {
+  position: relative;
+  width: 240px;
+  height: 160px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-video-poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.chat-video-thumb:hover .chat-video-poster {
+  opacity: 0.75;
+}
+
+.chat-video-play {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.7);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.chat-video-thumb:hover .chat-video-play {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+
+.media-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-family: var(--font-mono);
+}

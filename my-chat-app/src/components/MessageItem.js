@@ -3,241 +3,155 @@ import { useAuth } from "../context/AuthContext";
 import TranslateDropdown from "./TranslateDropdown";
 import axios from "../utils/axiosInstance";
 import "./MessageItem.css";
+import { Languages, Download, X } from "lucide-react";
+
+const BASE = process.env.REACT_APP_API_URL || "";
+
+function formatTime(timestamp) {
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 function MessageItem({ msg, onMediaClick }) {
-
   const { firebaseUser } = useAuth();
   const [translatedText, setTranslatedText] = useState(null);
-  const [selectedLang, setSelectedLang] = useState("");
-  const isCurrentUser = (msg.sender || msg.senderId) === firebaseUser.uid;
+  const [selectedLang, setSelectedLang]     = useState("");
   const [loadingTranslation, setLoadingTranslation] = useState(false);
+  const [showTranslate, setShowTranslate]   = useState(false);
+
+  const isCurrentUser = (msg.sender || msg.senderId) === firebaseUser?.uid;
 
   useEffect(() => {
+    if (!msg.text || !selectedLang) return;
 
-  if (!msg.text || !selectedLang) return;
-
-
-  const delayDebounce = setTimeout(() => {
-    const translateText = async () => {
+    const timer = setTimeout(async () => {
       setLoadingTranslation(true);
       try {
         const res = await axios.post("/api/translate", {
-        text: msg.text,
-        targetLanguage: selectedLang,
-      });
-
-        setTranslatedText(res.data.translatedText);
+          text: msg.text,
+          targetLanguage: selectedLang,
+        });
+        setTranslatedText(res.data.translatedText || "No translation returned.");
       } catch (err) {
-        console.error("Translation failed", err);
-        const errorMsg = err?.response?.data?.message || "Translation failed.";
-        setTranslatedText(errorMsg);
-
+        // Show a friendly message instead of crashing
+        const status = err?.response?.status;
+        if (status === 403 || status === 401) {
+          setTranslatedText("Auth error — check API token.");
+        } else if (status === 500) {
+          setTranslatedText("Translation service unavailable.");
+        } else {
+          setTranslatedText("Translation failed. Try again.");
+        }
       } finally {
-      setLoadingTranslation(false); 
+        setLoadingTranslation(false);
       }
-    };
+    }, 400);
 
-    translateText();
-  }, 400); 
+    return () => clearTimeout(timer);
+  }, [selectedLang, msg.text]);
 
-  return () => clearTimeout(delayDebounce); 
-}, [selectedLang,msg.text, msg.originalLang]);
+  const clearTranslation = () => {
+    setTranslatedText(null);
+    setSelectedLang("");
+    setShowTranslate(false);
+  };
 
   return (
-
     <div className={`message-item ${isCurrentUser ? "sent" : "received"}`}>
+      <div className="message-meta">
+        <span className="sender-label">{isCurrentUser ? "you" : "them"}</span>
+        <span className="message-timestamp">{formatTime(msg.timestamp)}</span>
+      </div>
+
       <div className="message-bubble">
-        <div className="message-header">
-          <span className="sender-label">{isCurrentUser ? "You:" : "Friend:"}</span>
-
-          {msg.type === "text" && (
-            <div className="dropdown-wrapper">
-              <TranslateDropdown
-                selected={selectedLang}
-                onChange={(lang) => setSelectedLang(lang)}
-                compact
-              />
-            </div>
-          )}
-        </div>
-
+        {/* ── Text message ── */}
         {msg.type === "text" && (
           <>
-            <p className="message-text original-text">{msg.text}</p>
-            {loadingTranslation ? (
-              <div style={{ color: "#999", fontStyle: "italic", marginTop: "4px" }}>
-                Translating...
-              </div>
-            ) : (
-              translatedText && (
-                <div
-                  style={{
-                    position: "relative",
-                    backgroundColor: "#f1f1f1",
-                    padding: "8px 24px 8px 8px",
-                    marginTop: "6px",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <p className="message-text translated-text">{translatedText}</p>
-                  <button
-                    onClick={() => {
-                      setTranslatedText("");
-                      setSelectedLang("");
-                    }}
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "6px",
-                      background: "transparent",
-                      border: "none",
-                      color: "#555",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                    }}
-                    aria-label="Close translation"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) ) }
-              
-          </>
-        )}
-        {msg.type === "media" && (
-          <div className="media-wrapper">
+            <p className="message-text">{msg.text}</p>
 
-            {msg.mediaType === "image" && (
-              <div
-                style={{
-                  backgroundColor: "#f1f1f1",
-                  padding: "10px",
-                  borderRadius: "12px",
-                  maxWidth: "220px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <img
-                    src={`${process.env.REACT_APP_API_URL}
-/thumbnails${msg.mediaUrl}`}
-                    alt="shared an image"
-                    className="chat-image"
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      objectFit: "contain",
-                    }}
-                    onClick={() =>
-                      onMediaClick({ type: "image", url: `${process.env.REACT_APP_API_URL}
-${msg.mediaUrl}` })
-                    }
-                  />
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      color: "#333",
-                    }}
-                  >
-                    shared an image
-                  </span>
-                </div>
+            {!showTranslate && (
+              <button className="translate-btn" onClick={() => setShowTranslate(true)}>
+                <Languages size={12} /> translate
+              </button>
+            )}
 
-                <a
-                  href={`${process.env.REACT_APP_API_URL}
-/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
-                  download
-                  className="download-btn"
-                >
-                  Download
-                </a>
+            {showTranslate && (
+              <div style={{ marginTop: 6 }}>
+                <TranslateDropdown
+                  selected={selectedLang}
+                  onChange={(lang) => setSelectedLang(lang)}
+                  compact
+                />
               </div>
             )}
 
+            {loadingTranslation && (
+              <div className="translating-text">translating...</div>
+            )}
+
+            {translatedText && !loadingTranslation && (
+              <div className="translated-bubble">
+                <p className="message-text">{translatedText}</p>
+                <button className="translated-close" onClick={clearTranslation}><X size={12} /></button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Media message ── */}
+        {msg.type === "media" && (
+          <div className="media-wrapper">
+            {msg.mediaType === "image" && (
+              <>
+                <img
+                  src={`${BASE}${msg.mediaUrl}`}
+                  alt="shared"
+                  className="chat-image"
+                  onClick={() => onMediaClick({ type: "image", url: `${BASE}${msg.mediaUrl}` })}
+                />
+                <a href={`${BASE}/api/upload/download/${msg.mediaUrl.split("/").pop()}`} download className="download-btn">
+                  <Download size={12} /> download
+                </a>
+              </>
+            )}
 
             {msg.mediaType === "video" && (
-            <div style={{ maxWidth: "400px", margin: "10px 0" }}>
-                <video
-                className="chat-video"
-                controls
-                style={{ width: "100%", borderRadius: "8px", cursor: "pointer" }}
-                poster={`${process.env.REACT_APP_API_URL}
-/thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
-                onClick={() =>
-                    onMediaClick({
-                    type: "video",
-                    url: `${process.env.REACT_APP_API_URL}
-${msg.mediaUrl}`,
-                    })
-                }
+              <>
+                <div
+                  className="chat-video-thumb"
+                  onClick={() => onMediaClick({ type: "video", url: `${BASE}${msg.compressedVideo || msg.mediaUrl}` })}
                 >
-                <source src={`${process.env.REACT_APP_API_URL}
-${msg.compressedVideo || msg.mediaUrl}`} type="video/mp4" />
-                Your browser does not support the video tag.
-                </video>
-
-                <div style={{ marginTop: "8px", textAlign: "center" }}>
-                <a
-                    href={`${process.env.REACT_APP_API_URL}
-/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
-                    download
-                    className="download-btn"
-                >
-                    Download
-                </a>
+                  <img
+                    src={`${BASE}/uploads/thumbnails/thumb-${msg.mediaUrl.split("/").pop()}.jpg`}
+                    alt="video"
+                    className="chat-video-poster"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="chat-video-play">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                      <polygon points="5,3 19,12 5,21" />
+                    </svg>
+                  </div>
                 </div>
-            </div>
+                <a href={`${BASE}/api/upload/download/${msg.mediaUrl.split("/").pop()}`} download className="download-btn">
+                  <Download size={12} /> download
+                </a>
+              </>
             )}
 
             {msg.mediaType === "audio" && (
-                <div style={{ maxWidth: "400px", margin: "10px 0" }}>
-                    <audio
-                    controls
-                    preload="metadata"
-                    style={{ width: "100%", borderRadius: "4px", backgroundColor: "#f0f0f0" }}
-                    onClick={() =>
-                        onMediaClick({
-                        type: "audio",
-                        url: `${process.env.REACT_APP_API_URL}
-${msg.mediaUrl}`,
-                        })
-                    }
-                    >
-                    <source src={`${process.env.REACT_APP_API_URL}
-${msg.mediaUrl}`} type="audio/mpeg" />
-                    Your browser does not support the audio element.
-                    </audio>
-
-                    {msg.duration && (
-                      <div style={{ fontSize: "14px", color: "#444", marginTop: "6px" }}>
-                        Duration: {Math.floor(msg.duration)} seconds
-                      </div>
-                    )}
-
-                    <div style={{ marginTop: "8px", textAlign: "center" }}>
-                    <a
-                        href={`${process.env.REACT_APP_API_URL}
-/api/upload/download/${msg.mediaUrl.split("/").pop()}`}
-                        download
-                        className="download-btn"
-                    >
-                        Download
-                    </a>
-                    </div>
-                </div>
+              <>
+                <audio controls preload="metadata" style={{ width: "100%", marginTop: 6 }}>
+                  <source src={`${BASE}${msg.mediaUrl}`} type="audio/mpeg" />
+                </audio>
+                {msg.duration && (
+                  <div className="media-label">{Math.floor(msg.duration)}s</div>
+                )}
+                <a href={`${BASE}/api/upload/download/${msg.mediaUrl.split("/").pop()}`} download className="download-btn">
+                  <Download size={12} /> download
+                </a>
+              </>
             )}
-            
           </div>
         )}
       </div>
@@ -246,4 +160,3 @@ ${msg.mediaUrl}`} type="audio/mpeg" />
 }
 
 export default React.memo(MessageItem);
-

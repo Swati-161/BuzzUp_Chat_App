@@ -11,6 +11,7 @@
     "axios": "^1.9.0",
     "firebase": "^11.9.1",
     "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.383.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.7.0",

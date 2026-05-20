@@ -6,3 +6,6 @@ backend/google-credentials.json
 my-chat-app/.env
 my-chat-app/build/
 .netlify
+backend/config/google-translate-key.json
+backend/config/firebase-service-account.json
+backend/uploads/
