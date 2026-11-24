@@ -6,6 +6,11 @@ A full-stack real-time messaging app built with **React**, **Node.js/Express**, 
 
 ## Features
 
+- Redesigned, mobile-first UI: warm gradients, glass surfaces, a floating dark nav and 44px+ touch targets
+- Interest rooms you can swipe to join (♥ join · ☆ save · share · skip), plus group chats for each room
+- Video room screen with live speaking indicators, mute/deafen controls and your own camera
+- Voice notes (record in the browser), photo galleries, emoji reactions and read receipts
+- Built-in **demo mode** with seeded people, rooms and conversations (no backend required)
 - Firebase Authentication (email/password)
 - Real-time messaging via Firebase Realtime Database
 - Message translation (Google Cloud Translate API)
@@ -142,6 +147,20 @@ Start the frontend:
 npm start
 # App running on http://localhost:3000
 ```
+
+---
+
+## Demo Mode
+
+The frontend ships with a self-contained demo so anyone can try every feature without accounts or a running backend.
+
+- On the welcome screen, tap **Explore the demo** (signs in as Alex Rivera).
+- Demo logins: `alex@buzzup.app`, `maya@buzzup.app`, `kofi@buzzup.app`, … — password `buzzup123`.
+- Data lives in the browser (`localStorage`) and syncs between tabs: open a second tab, sign in as Maya and chat with Alex in real time.
+- Seeded friends reply automatically when nobody is signed in as them; **Profile → Reset demo data** restores the starting state.
+- Translation in demo mode uses the free MyMemory API.
+
+When the `REACT_APP_FIREBASE_*` variables are set, any non-`@buzzup.app` email signs in with Firebase as before; if they are missing the app runs in demo mode only. Data access lives in `src/services/` (`demoBackend.js` and `firebaseBackend.js` expose the same interface).
 
 ---
 
