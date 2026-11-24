@@ -65,7 +65,7 @@ export function MenuDrawer({ onClose }) {
           <Avatar user={user} size={52} />
           <div>
             <strong>{user.username}</strong>
-            <span>{user.email}</span>
+            <span>{user.email || `@${user.handle}`}</span>
           </div>
         </div>
         <nav className="drawer-nav">
@@ -78,7 +78,7 @@ export function MenuDrawer({ onClose }) {
         {mode === "demo" && (
           <div className="drawer-note">
             <strong>Demo mode</strong>
-            <p>Everything is stored in this browser. Open a second tab and sign in as <b>maya@buzzup.app</b> (password <b>buzzup123</b>) to chat with yourself in real time.</p>
+            <p>Everything is stored in this browser. Open a second tab, sign out and tap <b>Explore as Maya</b> to chat with yourself in real time.</p>
           </div>
         )}
         <button type="button" className="drawer-signout" onClick={() => backend.signOut()}><LogOut size={17} /> Sign out</button>

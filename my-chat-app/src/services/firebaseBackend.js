@@ -20,6 +20,14 @@ const r = (path) => ref(db, path);
 const absolute = (url) => (!url || /^(https?:|data:|blob:)/.test(url) ? url : `${API}${url}`);
 const keys = (obj) => Object.keys(obj || {});
 const communityOf = (convId) => COMMUNITIES.find((c) => roomConversationId(c.id) === convId);
+const PROFILE_FIELDS = ["uid", "username", "avatar", "bio", "interests", "city"];
+const publicProfile = (p) => Object.fromEntries(PROFILE_FIELDS.filter((k) => p[k] !== undefined).map((k) => [k, p[k]]));
+
+function currentUid() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("You're signed out. Please sign in again.");
+  return uid;
+}
 
 function normalizeMessage(id, raw) {
   let { type, media = [] } = raw;
@@ -69,7 +77,12 @@ const api = {
       const statusRef = r(`status/${user.uid}`);
       set(statusRef, { online: true, lastSeen: Date.now() });
       onDisconnect(statusRef).set({ online: false, lastSeen: Date.now() });
-      profileUnsub = onValue(r(`users/${user.uid}`), (snap) => {
+      profileUnsub = onValue(r(`profiles/${user.uid}`), async (snap) => {
+        if (!snap.exists()) {
+          const legacy = (await get(r(`users/${user.uid}`)).catch(() => null))?.val() || {};
+          await set(r(`profiles/${user.uid}`), { uid: user.uid, username: legacy.username || user.displayName || "BuzzUp user" });
+          return;
+        }
         const p = snap.val() || {};
         cb({ uid: user.uid, email: user.email, username: p.username || user.displayName || user.email?.split("@")[0], avatar: p.avatar || null, bio: p.bio || "", interests: p.interests || [], city: p.city || "" });
       });
@@ -84,6 +97,7 @@ const api = {
   async signUp({ username, email, password }) {
     const { user } = await createUserWithEmailAndPassword(auth, email, password);
     await updateAuthProfile(user, { displayName: username.trim() });
+    await set(r(`profiles/${user.uid}`), { uid: user.uid, username: username.trim() });
     await set(r(`users/${user.uid}`), { uid: user.uid, email: email.toLowerCase(), username: username.trim() });
   },
 
@@ -97,7 +111,7 @@ const api = {
   },
 
   async updateProfile(me, patch) {
-    await update(r(`users/${me}`), patch);
+    await update(r(`profiles/${currentUid()}`), publicProfile(patch));
   },
 
   subscribeUsers(cb) {
@@ -105,10 +119,10 @@ const api = {
     let status = {};
     const emit = () => {
       const map = {};
-      Object.entries(users).forEach(([id, u]) => { map[id] = { ...u, uid: id, online: !!status[id]?.online }; });
+      Object.entries(users).forEach(([id, u]) => { map[id] = { ...publicProfile(u), uid: id, online: !!status[id]?.online }; });
       cb(map);
     };
-    const a = onValue(r("users"), (s) => { users = s.val() || {}; emit(); }, () => cb({}));
+    const a = onValue(r("profiles"), (s) => { users = s.val() || {}; emit(); }, () => cb({}));
     const b = onValue(r("status"), (s) => { status = s.val() || {}; emit(); }, () => {});
     return () => { a(); b(); };
   },
@@ -116,9 +130,10 @@ const api = {
   async searchUsers(q, me) {
     const term = q.trim().toLowerCase();
     if (!term) return [];
-    const snap = await get(r("users"));
-    return Object.values(snap.val() || {})
-      .filter((u) => u.uid !== me && [u.username, u.email].some((v) => v?.toLowerCase().includes(term)))
+    const snap = await get(r("profiles"));
+    return Object.entries(snap.val() || {})
+      .map(([id, u]) => ({ ...publicProfile(u), uid: id }))
+      .filter((u) => u.uid !== me && u.username?.toLowerCase().includes(term))
       .slice(0, 10);
   },
 
@@ -203,7 +218,8 @@ const api = {
     return () => {};
   },
 
-  async sendMessage(convId, sender, payload) {
+  async sendMessage(convId, _sender, payload) {
+    const sender = currentUid();
     const isRoom = convId.startsWith("room-");
     const members = await membersOf(convId);
     const receiver = isRoom ? null : members.find((m) => m !== sender);
@@ -221,14 +237,17 @@ const api = {
     }));
   },
 
-  async toggleReaction(convId, msgId, me, emoji) {
+  async toggleReaction(convId, msgId, _me, emoji) {
+    const me = currentUid();
     const path = `Messages/${convId}/${msgId}/reactions/${emoji}/${me}`;
     const snap = await get(r(path));
     if (snap.exists()) await remove(r(path));
     else await set(r(path), true);
   },
 
-  async setActiveConversation(me, convId) {
+  async setActiveConversation(_me, convId) {
+    const me = auth.currentUser?.uid;
+    if (!me) return;
     if (!convId) return remove(r(`ActiveChats/${me}`));
     await set(r(`ActiveChats/${me}`), convId);
     const updates = {};
@@ -254,7 +273,8 @@ const api = {
     });
   },
 
-  async markAllNotificationsRead(me) {
+  async markAllNotificationsRead() {
+    const me = currentUid();
     const notifs = (await get(r(`Notifications/${me}`))).val() || {};
     const updates = {};
     Object.keys(notifs).forEach((id) => { updates[`Notifications/${me}/${id}/read`] = true; });
@@ -305,7 +325,8 @@ const api = {
     });
   },
 
-  async joinCommunity(me, cid) {
+  async joinCommunity(_me, cid) {
+    const me = currentUid();
     const convId = roomConversationId(cid);
     await update(r(), {
       [`Memberships/${me}/joined/${cid}`]: true,
@@ -317,7 +338,8 @@ const api = {
     return convId;
   },
 
-  async leaveCommunity(me, cid) {
+  async leaveCommunity(_me, cid) {
+    const me = currentUid();
     await update(r(), {
       [`Memberships/${me}/joined/${cid}`]: null,
       [`Rooms/${cid}/members/${me}`]: null,
@@ -325,17 +347,20 @@ const api = {
     });
   },
 
-  async toggleSaveCommunity(me, cid) {
+  async toggleSaveCommunity(_me, cid) {
+    const me = currentUid();
     const path = `Memberships/${me}/saved/${cid}`;
     const snap = await get(r(path));
     await set(r(path), snap.exists() ? null : true);
   },
 
-  async skipCommunity(me, cid) {
+  async skipCommunity(_me, cid) {
+    const me = currentUid();
     await set(r(`Memberships/${me}/skipped/${cid}`), true);
   },
 
-  async resetDeck(me) {
+  async resetDeck() {
+    const me = currentUid();
     await remove(r(`Memberships/${me}/skipped`));
   },
 };

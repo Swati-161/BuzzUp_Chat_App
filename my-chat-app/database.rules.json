@@ -1,0 +1,92 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "profiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.child('uid').val() === $uid && !newData.hasChild('email')"
+      }
+    },
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "status": {
+      ".read": "auth != null",
+      "$uid": { ".write": "auth != null && auth.uid === $uid" }
+    },
+
+    "ActiveChats": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "Chatlist": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$other": {
+          ".write": "auth != null && $other === auth.uid && newData.val() === true"
+        }
+      }
+    },
+
+    "Rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        "members": {
+          "$uid": { ".write": "auth != null && auth.uid === $uid" }
+        }
+      }
+    },
+
+    "Memberships": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "Notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$id": {
+          ".write": "auth != null && (auth.uid === $uid || (!data.exists() && newData.child('from').val() === auth.uid && newData.child('to').val() === $uid))"
+        }
+      }
+    },
+
+    "Messages": {
+      "$convId": {
+        ".read": "auth != null && ($convId.beginsWith(auth.uid + '_') || $convId.endsWith('_' + auth.uid) || ($convId.beginsWith('room-') && root.child('Rooms/' + $convId.replace('room-', '') + '/members/' + auth.uid).exists()))",
+        "$msgId": {
+          ".write": "auth != null && !data.exists() && newData.child('sender').val() === auth.uid && ($convId.beginsWith(auth.uid + '_') || $convId.endsWith('_' + auth.uid) || ($convId.beginsWith('room-') && root.child('Rooms/' + $convId.replace('room-', '') + '/members/' + auth.uid).exists()))",
+          "readBy": {
+            "$uid": {
+              ".write": "auth != null && $uid === auth.uid && ($convId.beginsWith(auth.uid + '_') || $convId.endsWith('_' + auth.uid) || ($convId.beginsWith('room-') && root.child('Rooms/' + $convId.replace('room-', '') + '/members/' + auth.uid).exists()))"
+            }
+          },
+          "reactions": {
+            "$emoji": {
+              "$uid": {
+                ".write": "auth != null && $uid === auth.uid && ($convId.beginsWith(auth.uid + '_') || $convId.endsWith('_' + auth.uid) || ($convId.beginsWith('room-') && root.child('Rooms/' + $convId.replace('room-', '') + '/members/' + auth.uid).exists()))"
+              }
+            }
+          },
+          "read": {
+            ".write": "auth != null && data.parent().child('receiver').val() === auth.uid"
+          }
+        }
+      }
+    }
+  }
+}

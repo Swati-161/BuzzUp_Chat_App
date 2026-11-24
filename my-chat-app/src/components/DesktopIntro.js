@@ -5,7 +5,7 @@ const FEATURES = [
   { Icon: Mic, title: "Voice notes, photos & reactions", text: "Hold a conversation the way friends actually do. Tap any bubble to react." },
   { Icon: Languages, title: "Translate any message", text: "Tap a message, then the translate icon. Try Priya's Spanish text." },
   { Icon: Video, title: "Hop into a video room", text: "Live speaking indicators, mute, deafen and your own camera." },
-  { Icon: MonitorSmartphone, title: "Real-time across tabs", text: "Open a second tab as maya@buzzup.app to watch messages arrive live." },
+  { Icon: MonitorSmartphone, title: "Real-time across tabs", text: "Open a second tab, sign out and explore as Maya to watch messages arrive live." },
 ];
 
 export default function DesktopIntro() {
@@ -28,9 +28,8 @@ export default function DesktopIntro() {
       <div className="intro-logins">
         <Users size={16} />
         <div>
-          <strong>Demo logins</strong>
-          <p><code>alex@buzzup.app</code> · <code>maya@buzzup.app</code> · <code>kofi@buzzup.app</code></p>
-          <p>Password <code>buzzup123</code></p>
+          <strong>Try it as different people</strong>
+          <p>Tap <b>Explore the demo</b> to be Alex, or pick Maya or Kofi on the welcome screen. No passwords needed.</p>
         </div>
       </div>
       <div className="intro-palette" aria-label="Design palette">

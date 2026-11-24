@@ -94,7 +94,7 @@ export default function ProfileScreen() {
           )}
           <button type="button" className="setting setting--danger" onClick={() => backend.signOut()}>
             <span className="setting-icon"><LogOut size={17} /></span>
-            <span className="setting-body"><strong>Sign out</strong><small>{user.email}</small></span>
+            <span className="setting-body"><strong>Sign out</strong><small>{user.email || user.username}</small></span>
             <ChevronRight size={16} />
           </button>
         </div>

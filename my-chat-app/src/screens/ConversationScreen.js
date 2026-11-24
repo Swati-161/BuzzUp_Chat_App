@@ -95,7 +95,7 @@ export default function ConversationScreen({ convId }) {
           ) : (
             <div className="chat-head-person">
               <Avatar user={other} size={42} online={other?.online} />
-              <span>{other?.bio || other?.email}</span>
+              <span>{other?.bio || (other?.handle ? `@${other.handle}` : "")}</span>
             </div>
           )}
           <div className="chat-head-status">

@@ -5,10 +5,6 @@ const MODE_KEY = "buzzup.mode";
 
 export { isFirebaseConfigured };
 
-export function isDemoEmail(email = "") {
-  return email.trim().toLowerCase().endsWith("@buzzup.app");
-}
-
 export function savedMode() {
   try {
     const mode = localStorage.getItem(MODE_KEY);

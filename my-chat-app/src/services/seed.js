@@ -3,9 +3,8 @@ export const person = (name) => asset(`people/${name}.jpg`);
 export const place = (name) => asset(`places/${name}.jpg`);
 export const VOICE_NOTE_URL = asset("audio/voice-note.wav");
 
-export const DEMO_PASSWORD = "buzzup123";
-export const DEMO_EMAIL = "alex@buzzup.app";
 export const DEMO_UID = "u-alex";
+export const FEATURED_PERSONAS = ["u-alex", "u-maya", "u-kofi"];
 
 export const SEED_USERS = [
   { uid: "u-alex",  username: "Alex Rivera",  handle: "alex",  city: "Mumbai",    bio: "Product designer. Weekend trail runner, weekday pixel pusher.", interests: ["Hiking", "Design", "Coffee", "Bouldering"], online: true },
@@ -24,7 +23,7 @@ export const SEED_USERS = [
   { uid: "u-sofia", username: "Sofia Rossi",  handle: "sofia", city: "Pune",      bio: "Golden hour is my favourite hour.", interests: ["Photography", "Hiking"], online: false },
   { uid: "u-ruby",  username: "Ruby Shah",    handle: "ruby",  city: "Mumbai",    bio: "Saying yes to every adventure.", interests: ["Travel", "Running"], online: true },
   { uid: "u-walt",  username: "Walt Hughes",  handle: "walt",  city: "Shimla",    bio: "40 years on the trails and counting.", interests: ["Hiking", "Stories"], online: false },
-].map((u) => ({ ...u, email: `${u.handle}@buzzup.app`, avatar: person(u.handle) }));
+].map((u) => ({ ...u, avatar: person(u.handle) }));
 
 export const COMMUNITIES = [
   {

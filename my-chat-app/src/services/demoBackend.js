@@ -1,5 +1,5 @@
 import {
-  SEED_USERS, COMMUNITIES, INITIAL_JOINED, DEMO_PASSWORD, DEMO_UID,
+  SEED_USERS, COMMUNITIES, INITIAL_JOINED, DEMO_UID,
   AUTO_REPLIES, buildStarterThreads, roomConversationId, directConversationId,
 } from "./seed";
 import { compressImage, fileToDataUrl, translateWithMyMemory } from "./media";
@@ -11,6 +11,18 @@ const PRESENCE_WINDOW = 45 * 1000;
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const firstName = (name = "") => name.split(" ")[0] || "there";
+const toHex = (buf) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode(salt), iterations: 150000, hash: "SHA-256" }, key, 256);
+  return toHex(bits);
+}
+
+function emailOf(id) {
+  return Object.entries(state.accounts).find(([, a]) => a.uid === id)?.[0] || null;
+}
 
 let state = null;
 const listeners = new Set();
@@ -119,9 +131,9 @@ function seedAccount(me) {
 
 function freshState() {
   state = {
-    version: 1,
+    version: 2,
     users: Object.fromEntries(SEED_USERS.map((u) => [u.uid, { ...u }])),
-    accounts: Object.fromEntries(SEED_USERS.map((u) => [u.email, { uid: u.uid, password: DEMO_PASSWORD }])),
+    accounts: {},
     conversations: {},
     messages: {},
     notifications: {},
@@ -148,7 +160,7 @@ function load() {
   } catch {
     state = null;
   }
-  if (!state || state.version !== 1) freshState();
+  if (!state || state.version !== 2) freshState();
 }
 
 function readSession() {
@@ -281,14 +293,27 @@ const api = {
   mode: "demo",
 
   onAuthChange(cb) {
-    return subscribe(() => (sessionUid ? state.users[sessionUid] || null : null), cb);
+    return subscribe(() => {
+      const me = sessionUid && state.users[sessionUid];
+      return me ? { ...me, email: emailOf(sessionUid) } : null;
+    }, cb);
+  },
+
+  async signInAsPersona(personaUid) {
+    init();
+    if (!SEED_USERS.some((u) => u.uid === personaUid)) throw new Error("That demo profile doesn't exist.");
+    sessionUid = personaUid;
+    writeSession(sessionUid);
+    seedAccount(sessionUid);
+    startHeartbeat();
+    commit();
   },
 
   async signIn(email, password) {
     init();
     const account = state.accounts[email.trim().toLowerCase()];
     if (!account) throw Object.assign(new Error("No account found with this email."), { code: "auth/user-not-found" });
-    if (account.password !== password) throw Object.assign(new Error("Incorrect password."), { code: "auth/wrong-password" });
+    if ((await hashPassword(password, account.salt)) !== account.hash) throw Object.assign(new Error("Incorrect password."), { code: "auth/wrong-password" });
     sessionUid = account.uid;
     writeSession(sessionUid);
     seedAccount(sessionUid);
@@ -301,8 +326,9 @@ const api = {
     const key = email.trim().toLowerCase();
     if (state.accounts[key]) throw Object.assign(new Error("An account with this email already exists."), { code: "auth/email-already-in-use" });
     const id = `u-${uid()}`;
-    state.users[id] = { uid: id, username: username.trim(), handle: key.split("@")[0], email: key, avatar: null, bio: "New to BuzzUp 👋", interests: ["Hiking", "Music"], city: "", online: true };
-    state.accounts[key] = { uid: id, password };
+    const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
+    state.users[id] = { uid: id, username: username.trim(), handle: username.trim().toLowerCase().replace(/[^a-z0-9]+/g, ""), avatar: null, bio: "New to BuzzUp 👋", interests: ["Hiking", "Music"], city: "", online: true };
+    state.accounts[key] = { uid: id, salt, hash: await hashPassword(password, salt) };
     sessionUid = id;
     writeSession(id);
     seedAccount(id);
@@ -323,7 +349,8 @@ const api = {
   },
 
   async updateProfile(id, patch) {
-    state.users[id] = { ...state.users[id], ...patch };
+    const { email, ...profile } = patch;
+    state.users[id] = { ...state.users[id], ...profile };
     commit();
   },
 
@@ -342,7 +369,7 @@ const api = {
     const term = q.trim().toLowerCase();
     if (!term) return [];
     return Object.values(state.users)
-      .filter((u) => u.uid !== me && [u.username, u.handle, u.email].some((v) => v?.toLowerCase().includes(term)))
+      .filter((u) => u.uid !== me && [u.username, u.handle].some((v) => v?.toLowerCase().includes(term)))
       .slice(0, 10);
   },
 

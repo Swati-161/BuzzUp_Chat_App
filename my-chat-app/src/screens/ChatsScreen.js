@@ -37,7 +37,7 @@ export default function ChatsScreen() {
       <div className="screen-scroll">
         <div className="search">
           <Search size={17} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people by name or email" aria-label="Search people" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people by name" aria-label="Search people" />
           {query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X size={16} /></button>}
         </div>
 
@@ -49,7 +49,7 @@ export default function ChatsScreen() {
                 <Avatar user={users[u.uid] || u} size={46} online={users[u.uid]?.online} />
                 <div className="list-row-body">
                   <strong>{u.username}</strong>
-                  <span>{u.bio || u.email}</span>
+                  <span>{u.bio || (u.handle ? `@${u.handle}` : "")}</span>
                 </div>
                 <span className="pill-btn">Message</span>
               </button>

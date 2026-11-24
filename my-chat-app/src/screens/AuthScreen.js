@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ArrowRight, Sparkles, Eye, EyeOff } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { getBackend, isDemoEmail, isFirebaseConfigured } from "../services/backend";
-import { DEMO_EMAIL, DEMO_PASSWORD, person } from "../services/seed";
+import { getBackend, isFirebaseConfigured } from "../services/backend";
+import { DEMO_UID, FEATURED_PERSONAS, SEED_USERS, person } from "../services/seed";
 
 const BUBBLES = [
   { name: "maya", size: 74, top: "9%", left: "8%", delay: 0 },
@@ -46,18 +46,17 @@ export default function AuthScreen() {
     }
   };
 
-  const exploreDemo = () => run("demo", (b) => b.signIn(DEMO_EMAIL, DEMO_PASSWORD));
+  const explore = (personaUid) => run("demo", (b) => b.signInAsPersona(personaUid));
+  const accountMode = isFirebaseConfigured ? "firebase" : "demo";
 
   const submit = (e) => {
     e.preventDefault();
     if (view === "register") {
       if (form.username.trim().length < 2) return setError("Your name needs at least 2 characters.");
       if (form.password.length < 6) return setError("Password must be at least 6 characters.");
-      const mode = isFirebaseConfigured && !isDemoEmail(form.email) ? "firebase" : "demo";
-      return run(mode, (b) => b.signUp(form));
+      return run(accountMode, (b) => b.signUp(form));
     }
-    const mode = isFirebaseConfigured && !isDemoEmail(form.email) ? "firebase" : "demo";
-    return run(mode, (b) => b.signIn(form.email, form.password));
+    return run(accountMode, (b) => b.signIn(form.email, form.password));
   };
 
   return (
@@ -85,9 +84,20 @@ export default function AuthScreen() {
 
         {view === "welcome" ? (
           <div className="auth-actions">
-            <button type="button" className="btn btn--gradient btn--lg" onClick={exploreDemo} disabled={busy}>
+            <button type="button" className="btn btn--gradient btn--lg" onClick={() => explore(DEMO_UID)} disabled={busy}>
               <Sparkles size={18} /> {busy ? "Opening BuzzUp…" : "Explore the demo"}
             </button>
+            <div className="persona-row">
+              <span>or explore as</span>
+              {FEATURED_PERSONAS.filter((id) => id !== DEMO_UID).map((id) => {
+                const p = SEED_USERS.find((u) => u.uid === id);
+                return (
+                  <button type="button" key={id} className="persona-chip" onClick={() => explore(id)} disabled={busy}>
+                    <img src={p.avatar} alt="" /> {p.username.split(" ")[0]}
+                  </button>
+                );
+              })}
+            </div>
             <div className="auth-row">
               <button type="button" className="btn btn--ghost" onClick={() => setView("login")}>Sign in</button>
               <button type="button" className="btn btn--dark" onClick={() => setView("register")}>Create account</button>
@@ -120,10 +130,8 @@ export default function AuthScreen() {
             <button type="submit" className="btn btn--dark btn--lg" disabled={busy}>
               {busy ? "Just a sec…" : view === "register" ? "Create account" : "Sign in"} <ArrowRight size={17} />
             </button>
-            {view === "login" && (
-              <button type="button" className="demo-fill" onClick={() => setForm((f) => ({ ...f, email: DEMO_EMAIL, password: DEMO_PASSWORD }))}>
-                Use demo login <b>{DEMO_EMAIL}</b> · <b>{DEMO_PASSWORD}</b>
-              </button>
+            {accountMode === "demo" && (
+              <p className="demo-fill">Demo mode: accounts you create stay in this browser only.</p>
             )}
             <p className="auth-switch">
               {view === "login" ? "New here?" : "Already have an account?"}{" "}
